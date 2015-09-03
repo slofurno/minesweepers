@@ -19,29 +19,70 @@ namespace minesweepers
   {
 
     static BufferBlock<PlayerState> inputs;
+    static BufferBlock<Square[]> changedSquares;
+    static BufferBlock<string> updateQueue;
+    static List<Websocket> connections;
+    
 
     static void Main(string[] args)
     {
+      connections = new List<Websocket>();
+      updateQueue = new BufferBlock<string>();
+      changedSquares = new BufferBlock<Square[]>();
+      inputs = new BufferBlock<PlayerState>();
 
-      Listen().Wait();
 
+      Init().Wait();
+
+    }
+
+    static async Task Init()
+    {
+      Task.Run(() => StartGame());
+      await Listen();
     }
 
     static async Task StartGame()
     {
 
-      var game = new Sweeper();
+      var game = new Sweeper(changedSquares);
 
-      while (true)
+      Task.Run(async () =>
+       {
+         while (true)
+         {
+           PlayerState next = await inputs.ReceiveAsync();
+           await game.Update(next);
+         }
+       });
+
+      Task.Run(async () =>
       {
-        PlayerState next = await inputs.ReceiveAsync();
+        while (true)
+        {
+          Square[] changed = await changedSquares.ReceiveAsync();
+          var json = JSON.Serialize<Square[]>(changed);
+          await updateQueue.SendAsync(json);
+        }
+      });
 
+      Task.Run(async () =>
+      {
+        while (true)
+        {
+          var next = await updateQueue.ReceiveAsync();
 
+          foreach (var conn in connections)
+          {
+            await conn.WriteFrame(next);
+          }
 
-      }
+        }
+      });
 
 
     }
+    
 
     static async Task Listen()
     {
@@ -61,6 +102,7 @@ namespace minesweepers
 
     static async Task ProcessWebSocket(Websocket ws)
     {
+      connections.Add(ws);
 
       var player = new Player();
       string next;
@@ -68,7 +110,6 @@ namespace minesweepers
       while ((next = await ws.ReadFrame()) != null)
       {
         var update = JSON.Deserialize<PlayerState>(next);
-
 
       }
 

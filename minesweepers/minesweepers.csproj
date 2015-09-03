@@ -58,6 +58,7 @@
   <ItemGroup>
     <Compile Include="Game\Player.cs" />
     <Compile Include="Game\Square.cs" />
+    <Compile Include="Game\SquareState.cs" />
     <Compile Include="Game\Sweeper.cs" />
     <Compile Include="PlayerState.cs" />
     <Compile Include="Program.cs" />

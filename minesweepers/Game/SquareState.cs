@@ -6,13 +6,13 @@ using System.Threading.Tasks;
 
 namespace minesweepers.Game
 {
-  public class Square
+  public class SquareState
   {
+    public int X { get; set; }
+    public int Y { get; set; }
     public bool Mined { get; set; }
     public bool Revealed { get; set; }
-    public bool Flagged { get; set; }
     public string Owner { get; set; }
-    public int Neighbors { get; set; }
 
   }
 }
