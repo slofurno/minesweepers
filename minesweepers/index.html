@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang=en>
+<head>
+  <meta charset=utf-8>
+  <title>blah</title>
+</head>
+<body>
+
+  <script>
+    var ws = new WebSocket("ws://localhost:5678/ws");
+    ws.onmessage = function (e) {
+      console.log("REC:", e);
+    };
+
+    var mouseX = 0;
+    var mouseY = 0;
+    var isClicked = false;
+    var isRight = false;
+
+    window.onmousemove = function (e) {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    };
+
+    window.onmousedown = function (e) {
+
+      var button = e.buttons;
+
+      if (button != 1 && button != 2) {
+        return;
+      }
+
+      isClicked = true;
+
+      if (button == 2) {
+        isRight = true;
+      }
+
+
+    };
+
+    window.onmouseup = function (e) {
+      isClicked = false;
+    };
+
+    setInterval(function () {
+      console.log(mouseX, mouseY, isClicked, isRight);
+
+      var update = {
+        Hash: "fsdfsdfsdfs",
+        Color: "red",
+        X: mouseX,
+        Y: mouseY,
+        Clicked: isClicked,
+        IsRightClick:isRight
+      };
+
+      var json = JSON.stringify(update);
+
+      ws.send(json);
+
+    }, 500);
+
+    /*
+    function PlayerState() {
+      public string Hash { get; set; }
+      public string Color { get; set; }
+      public int X { get; set; }
+      public int Y { get; set; }
+      public bool Clicked { get; set; }
+      public bool IsRightClick { get; set; }
+      public bool Dead { get; set; }
+    }
+    */
+  </script>
+
+</body>
+</html>
