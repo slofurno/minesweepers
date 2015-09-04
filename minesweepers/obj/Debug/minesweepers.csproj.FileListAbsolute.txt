@@ -14,3 +14,4 @@ C:\dev\csharp\minesweepers\minesweepers\bin\Debug\Jil.xml
 C:\dev\csharp\minesweepers\minesweepers\bin\Debug\Sigil.pdb
 C:\dev\csharp\minesweepers\minesweepers\bin\Debug\Sigil.xml
 C:\dev\csharp\minesweepers\minesweepers\bin\Debug\System.Threading.Tasks.Dataflow.xml
+C:\dev\csharp\minesweepers\minesweepers\bin\Debug\index.html

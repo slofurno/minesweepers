@@ -12,6 +12,7 @@ using System.Threading.Tasks.Dataflow;
 
 using minesweepers.Game;
 using Jil;
+using System.Threading;
 
 namespace minesweepers
 {
@@ -21,16 +22,21 @@ namespace minesweepers
     static BufferBlock<PlayerState> inputs;
     static BufferBlock<Square[]> changedSquares;
     static BufferBlock<UpdatePacket> sendQueue;
-    static List<Websocket> connections;
+    static List<Websocket> _connections;
+    static SemaphoreSlim _connectionLock;
+    static BufferBlock<PlayerState> changedPlayers;
+    static Sweeper game;
     
 
     static void Main(string[] args)
     {
-      connections = new List<Websocket>();
+      _connections = new List<Websocket>();
       sendQueue = new BufferBlock<UpdatePacket>();
       changedSquares = new BufferBlock<Square[]>();
+      changedPlayers = new BufferBlock<PlayerState>();
       inputs = new BufferBlock<PlayerState>();
-
+      _connectionLock = new SemaphoreSlim(1);
+      
 
       Init().Wait();
 
@@ -45,7 +51,7 @@ namespace minesweepers
     static async Task StartGame()
     {
 
-      var game = new Sweeper(changedSquares);
+      game = new Sweeper(changedSquares, changedPlayers);
 
       Task.Run(async () =>
        {
@@ -53,6 +59,7 @@ namespace minesweepers
          {
            PlayerState next = await inputs.ReceiveAsync();
            await game.Update(next);
+           await changedPlayers.SendAsync(next);
          }
        });
 
@@ -75,13 +82,30 @@ namespace minesweepers
       {
         while (true)
         {
+          var changed = await changedPlayers.ReceiveAsync();
+          var json = JSON.Serialize<PlayerState>(changed);
+          var packet = new UpdatePacket()
+          {
+            Type = "player",
+            Data = json
+          };
+          await sendQueue.SendAsync(packet);
+        }
+      });
+
+      Task.Run(async () =>
+      {
+        while (true)
+        {
           var next = await sendQueue.ReceiveAsync();
           var json = JSON.Serialize<UpdatePacket>(next);
 
-          foreach (var conn in connections)
+          await _connectionLock.WaitAsync();
+          foreach (var conn in _connections)
           {
             await conn.WriteFrame(json);
           }
+          _connectionLock.Release();
 
         }
       });
@@ -108,10 +132,24 @@ namespace minesweepers
 
     static async Task ProcessWebSocket(Websocket ws)
     {
-      connections.Add(ws);
+      await _connectionLock.WaitAsync();
+      _connections.Add(ws);
+      _connectionLock.Release();
 
       var player = new Player();
       string next;
+
+      var squares = game.GetSquares();
+
+      var json = JSON.Serialize<Square[]>(squares);
+      var packet = new UpdatePacket()
+      {
+        Type = "square",
+        Data = json
+      };
+
+      var j = JSON.Serialize<UpdatePacket>(packet);
+      await ws.WriteFrame(j);
 
       while ((next = await ws.ReadFrame()) != null)
       {
@@ -123,17 +161,22 @@ namespace minesweepers
         {
           var update = JSON.Deserialize<PlayerState>(next);
           await inputs.SendAsync(update);
+          /*
           var packet = new UpdatePacket()
           {
             Type = "player",
             Data = next
           };
           await sendQueue.SendAsync(packet);
+           * */
         }
 
   
       }
 
+      await _connectionLock.WaitAsync();
+      _connections.Remove(ws);
+      _connectionLock.Release();
 
     }
 
@@ -148,7 +191,7 @@ namespace minesweepers
       string next;
       var headers = new Dictionary<string, string>();
       var queryStrings = new Dictionary<string, string>();
-      string path;
+      string path = "";
 
       var lines = new List<string>();
       var count = 0;
@@ -198,8 +241,24 @@ namespace minesweepers
         count++;
       }
 
-      var ws = await Upgrader.Upgrade(rw, headers);
-      ProcessWebSocket(ws);
+      switch (path)
+      {
+        case "ws":
+          var ws = await Upgrader.Upgrade(rw, headers);
+          await ProcessWebSocket(ws);
+          break;
+        case "":
+          string RESPONSE = "HTTP/1.1 200 OK\r\nContent-Length: {0}\r\nContent-Type: {1}; charset=UTF-8\r\nServer: Example\r\nDate: Wed, 17 Apr 2013 12:00:00 GMT\r\n\r\n{2}";
+          var body = File.ReadAllText("index.html");
+          await writer.WriteAsync(string.Format(RESPONSE, body.Length, "text/html", body));
+          break;
+        default:
+          break;
+      }
+
+      rw.Close();
+
+
 
 
     }

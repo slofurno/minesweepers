@@ -15,10 +15,12 @@ namespace minesweepers.Game
     private int height;
     private List<Square> changedSquares;
     private BufferBlock<Square[]> _bbs;
+    private BufferBlock<PlayerState> _bbp;
 
-    public Sweeper(BufferBlock<Square[]> bbs)
+    public Sweeper(BufferBlock<Square[]> bbs,BufferBlock<PlayerState>bbp)
     {
       _bbs = bbs;
+      _bbp = bbp;
       changedSquares = new List<Square>();
 
       var rng = new Random();
@@ -55,25 +57,37 @@ namespace minesweepers.Game
 
     }
 
-    public async Task Update(PlayerState state)
+    public async Task Update(PlayerState update)
     {
-      PlayerState prev;
+      PlayerState state;
 
-      if (!players.TryGetValue(state.Hash, out prev))
+      if (!players.TryGetValue(update.Hash, out state))
       {
-        players.Add(state.Hash, state);
+        players.Add(update.Hash, update);
         return;
 
       }
 
-      if (prev.Clicked == true || state.Clicked == false)
+      if (update.Dead)
+      {
+        update.Dead = false;
+        return;
+      }
+
+      if (state.Dead)
+      {
+        return;
+      }
+
+
+      if (state.Clicked == true || update.Clicked == false)
       {
         //didnt click
         return;
       }
 
-      int localx = state.X / 26;
-      int localy = state.Y / 26;
+      int localx = update.X / 26;
+      int localy = update.Y / 26;
 
       if (!(localx >= 0 && localy >= 0 && localx < width && localy < height))
       {
@@ -82,20 +96,26 @@ namespace minesweepers.Game
 
       var square = squares[localx,localy];
 
-      if (state.IsRightClick)
+      if (square.Revealed || square.Flagged)
+      {
+        return;
+      }
+
+      if (update.IsRightClick)
       {
         if (square.Mined)
         {
           square.Flagged = true;
-          square.Owner = state.Hash;
+          square.Owner = update.Hash;
           changedSquares.Add(square);
 
         }
         else
         {
-          square.Revealed = true;
+          //square.Revealed = true;
           //tried to flag not bomb
           state.Dead = true;
+          update.Dead = true;
 
         }
       }
@@ -105,6 +125,7 @@ namespace minesweepers.Game
         {
           //clicked bomb
           state.Dead = true;
+          update.Dead = true;
           square.Revealed = true;
           changedSquares.Add(square);
         }
@@ -114,12 +135,30 @@ namespace minesweepers.Game
         }
       }
 
+      
+
       if (changedSquares.Count > 0)
       {
         await _bbs.SendAsync(changedSquares.ToArray());
         changedSquares.Clear();
       }
 
+    }
+
+    public Square[] GetSquares()
+    {
+
+      var s = new List<Square>();
+
+      for (int j = 0; j < height; j++)
+      {
+        for (int i = 0; i < width; i++)
+        {
+          s.Add(squares[i, j]);
+        }
+      }
+
+      return s.ToArray();
     }
 
     public void Reveal(int x, int y)
