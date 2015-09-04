@@ -108,6 +108,8 @@
       myHash += alphas[index];
     }
 
+    var myColor = "deeppink";
+
     var minefield = document.createElement('div');
     minefield.className = "minefield";
     
@@ -256,7 +258,7 @@
 
       var update = {
         Hash: myHash,
-        Color: "red",
+        Color: myColor,
         X: mouseX,
         Y: mouseY,
         Clicked: isClicked,
