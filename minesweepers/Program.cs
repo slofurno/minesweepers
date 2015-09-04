@@ -20,14 +20,14 @@ namespace minesweepers
 
     static BufferBlock<PlayerState> inputs;
     static BufferBlock<Square[]> changedSquares;
-    static BufferBlock<string> sendQueue;
+    static BufferBlock<UpdatePacket> sendQueue;
     static List<Websocket> connections;
     
 
     static void Main(string[] args)
     {
       connections = new List<Websocket>();
-      sendQueue = new BufferBlock<string>();
+      sendQueue = new BufferBlock<UpdatePacket>();
       changedSquares = new BufferBlock<Square[]>();
       inputs = new BufferBlock<PlayerState>();
 
@@ -62,7 +62,12 @@ namespace minesweepers
         {
           Square[] changed = await changedSquares.ReceiveAsync();
           var json = JSON.Serialize<Square[]>(changed);
-          await sendQueue.SendAsync(json);
+          var packet = new UpdatePacket()
+          {
+            Type = "square",
+            Data = json
+          };
+          await sendQueue.SendAsync(packet);
         }
       });
 
@@ -71,10 +76,11 @@ namespace minesweepers
         while (true)
         {
           var next = await sendQueue.ReceiveAsync();
+          var json = JSON.Serialize<UpdatePacket>(next);
 
           foreach (var conn in connections)
           {
-            await conn.WriteFrame(next);
+            await conn.WriteFrame(json);
           }
 
         }
@@ -116,7 +122,13 @@ namespace minesweepers
         else
         {
           var update = JSON.Deserialize<PlayerState>(next);
-          await sendQueue.SendAsync(next);
+          await inputs.SendAsync(update);
+          var packet = new UpdatePacket()
+          {
+            Type = "player",
+            Data = next
+          };
+          await sendQueue.SendAsync(packet);
         }
 
   

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace minesweepers.Game
 {
-  public class Square
+  public class SquareUpdate
   {
     public bool Mined { get; set; }
     public bool Revealed { get; set; }
@@ -14,6 +14,5 @@ namespace minesweepers.Game
     public string Owner { get; set; }
     public int Neighbors { get; set; }
     public int Index { get; set; }
-
   }
 }

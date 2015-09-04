@@ -3,14 +3,141 @@
 <head>
   <meta charset=utf-8>
   <title>blah</title>
+  <style>
+    .square{
+      position:absolute;
+      width:12px;
+      height:20px;
+      background-color:aqua;
+      margin-left:-6px;
+      margin-top:-10px;
+    }
+
+    .mine-square{
+      position:relative;
+      display:inline-block;
+      width:26px;
+      height:26px;
+      background-color:lightslategray;
+      margin:0;
+      border-top: 3px solid #CCCCCC;
+      border-right: 3px solid #333333;
+      border-bottom: 3px solid #333333;
+      border-left: 3px solid #CCCCCC;
+      font-size:14px;
+      text-align: center;
+      -webkit-box-sizing: border-box; /* Safari/Chrome, other WebKit */
+      -moz-box-sizing: border-box;    /* Firefox, other Gecko */
+      box-sizing: border-box; 
+
+    }
+
+    .mine-square.pressed{
+      border-top: 3px solid lightslategray;
+      border-right: 3px solid lightslategray;
+      border-bottom: 3px solid lightslategray;
+      border-left: 3px solid lightslategray;
+
+    }
+
+    .mine-square.mined{
+      border-top: 3px solid lightslategray;
+      border-right: 3px solid lightslategray;
+      border-bottom: 3px solid lightslategray;
+      border-left: 3px solid lightslategray;
+      background-color:red;
+    }
+
+    .minefield{
+      width:780px;
+      height:600px;
+      font-size:0;
+    }
+  </style>
 </head>
 <body>
 
+
   <script>
     var ws = new WebSocket("ws://localhost:5678/ws");
-    ws.onmessage = function (e) {
-      console.log("REC:", e);
+    var divs = {};
+    var alphas = "0123456789abcdefghijklmnopqrstuvwxyz";
+    var mines = [];
+
+    function getRandomInt(min, max) {
+      return Math.floor(Math.random() * (max - min)) + min;
+    }
+
+    var myHash = "";
+
+    for (var i = 0; i < 16; i++) {
+      var index = getRandomInt(0, alphas.length - 1);
+      myHash += alphas[index];
+    }
+
+    var minefield = document.createElement('div');
+    minefield.className = "minefield";
+    
+    document.body.appendChild(minefield);
+
+    minefield.onclick = function (e) {
+      e.preventDefault();
     };
+
+    for (var i = 0; i < (30 * 20) ; i++) {
+      var ms = document.createElement('div');
+      ms.className = "mine-square";
+      ms.innerHTML = ".";
+      mines.push(ms);
+      minefield.appendChild(ms);
+    }
+
+
+    ws.onmessage = function (e) {
+
+      var update = JSON.parse(e.data);
+      var data = JSON.parse(update.Data);
+
+      if (update.Type == "player") {
+        updatePlayer(data);
+      } else {
+        updateSquare(data);
+      }
+      
+
+    };
+
+    function updatePlayer(update) {
+
+      if (divs[update.Hash]) {
+        var div = divs[update.Hash];
+        div.style.left = update.X + 'px';
+        div.style.top = update.Y + 'px';
+      } else {
+        var div = document.createElement('div');
+        div.className = 'square';
+        document.body.appendChild(div);
+        divs[update.Hash] = div;
+      }
+    }
+
+    function updateSquare(update) {
+
+      update.forEach(function (square) {
+
+        if (square.Mined && square.Revealed) {
+          mines[square.Index].className = "mine-square mined";
+        }else if (square.Revealed) {
+          mines[square.Index].className = "mine-square pressed";
+          if (square.Neighbors > 0) {
+            mines[square.Index].innerHTML = "" + square.Neighbors;
+          }
+        }
+
+        console.log(square);
+      });
+
+    }
 
     var mouseX = 0;
     var mouseY = 0;
@@ -44,10 +171,9 @@
     };
 
     setInterval(function () {
-      console.log(mouseX, mouseY, isClicked, isRight);
 
       var update = {
-        Hash: "fsdfsdfsdfs",
+        Hash: myHash,
         Color: "red",
         X: mouseX,
         Y: mouseY,
@@ -55,11 +181,14 @@
         IsRightClick:isRight
       };
 
-      var json = JSON.stringify(update);
+      isClicked = false;
 
+      //console.log(update);
+
+      var json = JSON.stringify(update);
       ws.send(json);
 
-    }, 500);
+    }, 100);
 
     /*
     function PlayerState() {

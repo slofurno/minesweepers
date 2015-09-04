@@ -23,20 +23,24 @@ namespace minesweepers.Game
 
       var rng = new Random();
 
-      width = 60;
-      height = 40;
+      width = 30;
+      height = 20;
       players = new Dictionary<string, PlayerState>();
       squares = new Square[width,height];
 
-      for (var i = 0; i < width; i++)
+      var index = 0;
+
+      for (var j = 0; j < height; j++)
       {
-        for (var j = 0; j < height; j++)
+        for (var i = 0; i < width; i++)
         {
           squares[i, j] = new Square();
+          squares[i, j].Index = index;
+          index++;
 
-          if (rng.Next(100) > 8)
+          if (rng.Next(100) > 85)
           {
-            squares[i,j].Mined = true;
+            squares[i, j].Mined = true;
           }
         }
       }
@@ -57,19 +61,24 @@ namespace minesweepers.Game
 
       if (!players.TryGetValue(state.Hash, out prev))
       {
-        //init player
+        players.Add(state.Hash, state);
         return;
 
       }
 
-      if (prev.Clicked != false && state.Clicked != true)
+      if (prev.Clicked == true || state.Clicked == false)
       {
         //didnt click
         return;
       }
 
-      int localx = state.X / 20;
-      int localy = state.Y / 20;
+      int localx = state.X / 26;
+      int localy = state.Y / 26;
+
+      if (!(localx >= 0 && localy >= 0 && localx < width && localy < height))
+      {
+        return;
+      }
 
       var square = squares[localx,localy];
 
@@ -97,6 +106,7 @@ namespace minesweepers.Game
           //clicked bomb
           state.Dead = true;
           square.Revealed = true;
+          changedSquares.Add(square);
         }
         else
         {
