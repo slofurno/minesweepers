@@ -116,7 +116,7 @@ namespace minesweepers
 
     static async Task Listen()
     {
-      var listener = new TcpListener(IPAddress.Parse("127.0.0.1"), 5678);
+      var listener = new TcpListener(IPAddress.Any, 5678);
       listener.Start();
 
       while (true)
