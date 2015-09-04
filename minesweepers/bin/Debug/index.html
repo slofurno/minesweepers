@@ -90,7 +90,7 @@
 
 
   <script>
-    var ws = new WebSocket("ws://localhost:5678/ws");
+    var ws = new WebSocket("ws://"+window.location.hostname+":5678/ws");
     var divs = {};
     var alphas = "0123456789abcdefghijklmnopqrstuvwxyz";
     var mines = [];
