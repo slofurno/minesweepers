@@ -15,6 +15,8 @@ namespace minesweepers
     public bool Clicked { get; set; }
     public bool IsRightClick { get; set; }
     public bool Dead { get; set; }
+    public int Points { get; set; }
+    public string Name { get; set; }
 
 
   }

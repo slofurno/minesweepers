@@ -68,11 +68,7 @@ namespace minesweepers.Game
 
       }
 
-      if (update.Dead)
-      {
-        update.Dead = false;
-        return;
-      }
+      update.Points = state.Points;
 
       if (state.Dead)
       {
@@ -108,6 +104,8 @@ namespace minesweepers.Game
           square.Flagged = true;
           square.Owner = update.Hash;
           changedSquares.Add(square);
+          state.Points++;
+          
 
         }
         else
@@ -135,7 +133,7 @@ namespace minesweepers.Game
         }
       }
 
-      
+      update.Points = state.Points;
 
       if (changedSquares.Count > 0)
       {

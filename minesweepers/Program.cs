@@ -136,9 +136,7 @@ namespace minesweepers
       _connections.Add(ws);
       _connectionLock.Release();
 
-      var player = new Player();
       string next;
-
       var squares = game.GetSquares();
 
       var json = JSON.Serialize<Square[]>(squares);

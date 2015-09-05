@@ -12,7 +12,7 @@
       background-color:aqua;
       background-color:RGBA(1,1,1,0);
       font-size:2em;
-      margin-top:-12px;
+      margin-top:-20px;
 
     }
 
@@ -59,6 +59,22 @@
       font-size:1em;
     }
 
+    .scoreboard{
+      position:fixed;
+      left:800px;
+      top:100px;
+      width:150px;
+      height:500px;
+    }
+
+    .options-menu{
+      position:fixed;
+      left:800px;
+      top:0;
+      width:150px;
+      height:100px;
+    }
+
     .one{
       color:mediumblue;
     }
@@ -88,8 +104,44 @@
 </head>
 <body>
 
+  <div id="scoreboard" class="options-menu">
+
+    <input id="playerName" type="text"/>
+    <select id="playerColors" style="width:40px; display:inline-block">
+    </select>
+    <div id="displayColor" style="width:40px;height:20px;display:inline-block"></div>
+
+  </div>
 
   <script>
+
+    "use strict";
+
+    var myName = "user";
+    var myColor = "deeppink";
+    var colors = document.getElementById("playerColors");
+
+    var CSS_COLOR_NAMES = ["AliceBlue", "AntiqueWhite", "Aqua", "Aquamarine", "Azure", "Beige", "Bisque", "Black", "BlanchedAlmond", "Blue", "BlueViolet", "Brown", "BurlyWood", "CadetBlue", "Chartreuse", "Chocolate", "Coral", "CornflowerBlue", "Cornsilk", "Crimson", "Cyan", "DarkBlue", "DarkCyan", "DarkGoldenRod", "DarkGray", "DarkGrey", "DarkGreen", "DarkKhaki", "DarkMagenta", "DarkOliveGreen", "Darkorange", "DarkOrchid", "DarkRed", "DarkSalmon", "DarkSeaGreen", "DarkSlateBlue", "DarkSlateGray", "DarkSlateGrey", "DarkTurquoise", "DarkViolet", "DeepPink", "DeepSkyBlue", "DimGray", "DimGrey", "DodgerBlue", "FireBrick", "FloralWhite", "ForestGreen", "Fuchsia", "Gainsboro", "GhostWhite", "Gold", "GoldenRod", "Gray", "Grey", "Green", "GreenYellow", "HoneyDew", "HotPink", "IndianRed", "Indigo", "Ivory", "Khaki", "Lavender", "LavenderBlush", "LawnGreen", "LemonChiffon", "LightBlue", "LightCoral", "LightCyan", "LightGoldenRodYellow", "LightGray", "LightGrey", "LightGreen", "LightPink", "LightSalmon", "LightSeaGreen", "LightSkyBlue", "LightSlateGray", "LightSlateGrey", "LightSteelBlue", "LightYellow", "Lime", "LimeGreen", "Linen", "Magenta", "Maroon", "MediumAquaMarine", "MediumBlue", "MediumOrchid", "MediumPurple", "MediumSeaGreen", "MediumSlateBlue", "MediumSpringGreen", "MediumTurquoise", "MediumVioletRed", "MidnightBlue", "MintCream", "MistyRose", "Moccasin", "NavajoWhite", "Navy", "OldLace", "Olive", "OliveDrab", "Orange", "OrangeRed", "Orchid", "PaleGoldenRod", "PaleGreen", "PaleTurquoise", "PaleVioletRed", "PapayaWhip", "PeachPuff", "Peru", "Pink", "Plum", "PowderBlue", "Purple", "Red", "RosyBrown", "RoyalBlue", "SaddleBrown", "Salmon", "SandyBrown", "SeaGreen", "SeaShell", "Sienna", "Silver", "SkyBlue", "SlateBlue", "SlateGray", "SlateGrey", "Snow", "SpringGreen", "SteelBlue", "Tan", "Teal", "Thistle", "Tomato", "Turquoise", "Violet", "Wheat", "White", "WhiteSmoke", "Yellow", "YellowGreen"];
+
+
+    CSS_COLOR_NAMES.forEach(function (color) {
+      var el = document.createElement('option');
+      el.style.backgroundColor = color;
+      el.value = color;
+      colors.appendChild(el);
+    });
+
+    colors.onchange = function (e) {
+
+      var color = e.target.value;
+      myColor = color;
+      document.getElementById("displayColor").style.backgroundColor = color;
+    };
+
+    document.getElementById("playerName").onchange = function (e) {
+      myName = e.target.value;
+    };
+
     var ws = new WebSocket("ws://"+window.location.hostname+":5678/ws");
     var divs = {};
     var alphas = "0123456789abcdefghijklmnopqrstuvwxyz";
@@ -108,16 +160,16 @@
       myHash += alphas[index];
     }
 
-    var myColor = "deeppink";
+    
 
     var minefield = document.createElement('div');
     minefield.className = "minefield";
     
     document.body.appendChild(minefield);
 
-    minefield.onclick = function (e) {
-      e.preventDefault();
-    };
+    var scoreboard = document.createElement('div');
+    scoreboard.className = "scoreboard";
+    document.body.appendChild(scoreboard);
 
     for (var i = 0; i < (30 * 20) ; i++) {
       var ms = document.createElement('div');
@@ -146,16 +198,38 @@
     };
 
     var Colors = {};
-    var Status = {};
+    var DeadPlayers = {};
+    var PlayerStates = {};
 
+
+    function PlayerState() {
+      this.Points = 0;
+      this.Name = "";
+      this.Dead = false;
+      this.Color = "green";
+    }
 
     function updatePlayer(update) {
 
       Colors[update.Hash] = update.Color;
 
-      if (update.Dead) {
+      if (DeadPlayers[update.Hash] === undefined && update.Dead) {
+        DeadPlayers[update.Hash] = true;
         parts.Add(update.X, update.Y, 50);
       }
+
+      if (PlayerState[update.Hash] === undefined) {
+
+        var sbe = document.createElement('div');
+        PlayerState[update.Hash] = {};
+        PlayerState[update.Hash].scoreboard = sbe;
+        scoreboard.appendChild(sbe);
+      } else {
+        console.log("updating",update.Name,update.Points)
+        PlayerState[update.Hash].scoreboard.innerHTML = update.Name + " " + update.Points;
+
+      }
+
 
       if (update.Hash === myHash) {
         return;
@@ -216,13 +290,13 @@
       return false;
     };
 
-    window.onmousemove = function (e) {
+    minefield.onmousemove = function (e) {
       mouseX = e.clientX;
       mouseY = e.clientY;
       hadInput = true;
     };
 
-    window.onmousedown = function (e) {
+    minefield.onmousedown = function (e) {
       e.preventDefault();
       var button = e.buttons;
 
@@ -262,7 +336,8 @@
         X: mouseX,
         Y: mouseY,
         Clicked: isClicked,
-        IsRightClick:isRight
+        IsRightClick: isRight,
+        Name:myName
       };
 
       isClicked = false;
