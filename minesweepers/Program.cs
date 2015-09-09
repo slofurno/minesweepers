@@ -87,33 +87,29 @@ namespace minesweepers
       }
     }
 
+    static async Task PushUpdates(BufferBlock<UpdatePacket> sendQueue)
+    {
+      while (true)
+      {
+        var next = await sendQueue.ReceiveAsync();
+        var json = JSON.Serialize<UpdatePacket>(next);
+
+        await _connectionLock.WaitAsync();
+        foreach (var conn in _connections)
+        {
+          await conn.WriteFrame(json);
+        }
+        _connectionLock.Release();
+
+      }
+    }
+
     static async Task StartGame()
     {
-
       Task.Run(()=>RunGame(_playerInputs,_changedSquares,_changedPlayers));
-
       Task.Run(()=>SerializeChangedSquares(_changedSquares,_sendQueue));
-
       Task.Run(()=>SerializeStateChanges(_changedPlayers,_sendQueue));
-
-      Task.Run(async () =>
-      {
-        while (true)
-        {
-          var next = await _sendQueue.ReceiveAsync();
-          var json = JSON.Serialize<UpdatePacket>(next);
-
-          await _connectionLock.WaitAsync();
-          foreach (var conn in _connections)
-          {
-            await conn.WriteFrame(json);
-          }
-          _connectionLock.Release();
-
-        }
-      });
-
-
+      Task.Run(()=>PushUpdates(_sendQueue));
     }
     
 
