@@ -19,22 +19,22 @@ namespace minesweepers
   class Program
   {
 
-    static BufferBlock<PlayerState> inputs;
-    static BufferBlock<Square[]> changedSquares;
-    static BufferBlock<UpdatePacket> sendQueue;
+    static BufferBlock<PlayerState> _playerInputs;
+    static BufferBlock<Square[]> _changedSquares;
+    static BufferBlock<UpdatePacket> _sendQueue;
     static List<Websocket> _connections;
     static SemaphoreSlim _connectionLock;
-    static BufferBlock<PlayerState> changedPlayers;
-    static Sweeper game;
+    static BufferBlock<PlayerState> _changedPlayers;
+    static Sweeper _game;
     
 
     static void Main(string[] args)
     {
       _connections = new List<Websocket>();
-      sendQueue = new BufferBlock<UpdatePacket>();
-      changedSquares = new BufferBlock<Square[]>();
-      changedPlayers = new BufferBlock<PlayerState>();
-      inputs = new BufferBlock<PlayerState>();
+      _sendQueue = new BufferBlock<UpdatePacket>();
+      _changedSquares = new BufferBlock<Square[]>();
+      _changedPlayers = new BufferBlock<PlayerState>();
+      _playerInputs = new BufferBlock<PlayerState>();
       _connectionLock = new SemaphoreSlim(1);
       
 
@@ -48,56 +48,59 @@ namespace minesweepers
       await Listen();
     }
 
+    static async Task RunGame(BufferBlock<PlayerState> playerInputs, BufferBlock<Square[]> changedSquares, BufferBlock<PlayerState> changedPlayers)
+    {
+      while (true)
+      {
+        _game = new Sweeper();
+        await _game.Run(playerInputs, changedSquares, changedPlayers);
+      }
+    }
+
+    static async Task SerializeChangedSquares(BufferBlock<Square[]> changedSquares, BufferBlock<UpdatePacket> sendQueue)
+    {
+      while (true)
+      {
+        Square[] changed = await changedSquares.ReceiveAsync();
+        var json = JSON.Serialize<Square[]>(changed);
+        var packet = new UpdatePacket()
+        {
+          Type = "square",
+          Data = json
+        };
+        await sendQueue.SendAsync(packet);
+      }
+    }
+
+    static async Task SerializeStateChanges(BufferBlock<PlayerState>changedPlayers,BufferBlock<UpdatePacket>sendQueue)
+    {
+      while (true)
+      {
+        var changed = await changedPlayers.ReceiveAsync();
+        var json = JSON.Serialize<PlayerState>(changed);
+        var packet = new UpdatePacket()
+        {
+          Type = "player",
+          Data = json
+        };
+        await sendQueue.SendAsync(packet);
+      }
+    }
+
     static async Task StartGame()
     {
 
-      game = new Sweeper(changedSquares, changedPlayers);
+      Task.Run(()=>RunGame(_playerInputs,_changedSquares,_changedPlayers));
 
-      Task.Run(async () =>
-       {
-         while (true)
-         {
-           PlayerState next = await inputs.ReceiveAsync();
-           await game.Update(next);
-           await changedPlayers.SendAsync(next);
-         }
-       });
+      Task.Run(()=>SerializeChangedSquares(_changedSquares,_sendQueue));
+
+      Task.Run(()=>SerializeStateChanges(_changedPlayers,_sendQueue));
 
       Task.Run(async () =>
       {
         while (true)
         {
-          Square[] changed = await changedSquares.ReceiveAsync();
-          var json = JSON.Serialize<Square[]>(changed);
-          var packet = new UpdatePacket()
-          {
-            Type = "square",
-            Data = json
-          };
-          await sendQueue.SendAsync(packet);
-        }
-      });
-
-      Task.Run(async () =>
-      {
-        while (true)
-        {
-          var changed = await changedPlayers.ReceiveAsync();
-          var json = JSON.Serialize<PlayerState>(changed);
-          var packet = new UpdatePacket()
-          {
-            Type = "player",
-            Data = json
-          };
-          await sendQueue.SendAsync(packet);
-        }
-      });
-
-      Task.Run(async () =>
-      {
-        while (true)
-        {
-          var next = await sendQueue.ReceiveAsync();
+          var next = await _sendQueue.ReceiveAsync();
           var json = JSON.Serialize<UpdatePacket>(next);
 
           await _connectionLock.WaitAsync();
@@ -137,7 +140,7 @@ namespace minesweepers
       _connectionLock.Release();
 
       string next;
-      var squares = game.GetSquares();
+      var squares = _game.GetSquares();
 
       var json = JSON.Serialize<Square[]>(squares);
       var packet = new UpdatePacket()
@@ -158,7 +161,7 @@ namespace minesweepers
         else
         {
           var update = JSON.Deserialize<PlayerState>(next);
-          await inputs.SendAsync(update);
+          await _playerInputs.SendAsync(update);
           /*
           var packet = new UpdatePacket()
           {
