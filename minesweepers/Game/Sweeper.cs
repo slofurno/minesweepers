@@ -14,6 +14,7 @@ namespace minesweepers.Game
     private int width;
     private int height;
     private int _remainingSquares;
+    public int LiveBombs { get; set; }
 
     public Sweeper()
     {
@@ -24,6 +25,7 @@ namespace minesweepers.Game
       players = new Dictionary<string, PlayerState>();
       squares = new Square[width,height];
       _remainingSquares = width * height;
+      LiveBombs = 0;
 
       var index = 0;
 
@@ -37,6 +39,7 @@ namespace minesweepers.Game
 
           if (rng.Next(100) > 85)
           {
+            LiveBombs += 1;
             squares[i, j].Mined = true;
           }
         }
@@ -123,7 +126,7 @@ namespace minesweepers.Game
             square.Owner = update.Hash;
             changedSquares.Add(square);
             state.Points++;
-
+            LiveBombs -= 1;
 
           }
           else

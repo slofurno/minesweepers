@@ -56,21 +56,23 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ConnectionHub.cs" />
+    <Compile Include="Events\InputEvent.cs" />
     <Compile Include="Game\Square.cs" />
-    <Compile Include="Game\SquareState.cs" />
     <Compile Include="Game\SquareUpdate.cs" />
     <Compile Include="Game\Sweeper.cs" />
     <Compile Include="Game\UpdatePacket.cs" />
     <Compile Include="Game\PlayerState.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Util\FileServer.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="index.html">
+    <Content Include="content\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

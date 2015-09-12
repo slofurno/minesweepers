@@ -22,21 +22,21 @@ namespace minesweepers
     static BufferBlock<PlayerState> _playerInputs;
     static BufferBlock<Square[]> _changedSquares;
     static BufferBlock<UpdatePacket> _sendQueue;
-    static List<Websocket> _connections;
-    static SemaphoreSlim _connectionLock;
+
     static BufferBlock<PlayerState> _changedPlayers;
-    static Sweeper _game;
+    static BufferBlock<Func<GamePointer,Task>>_taskQueue;
+
+    static ConnectionHub _connectionHub;
     
 
     static void Main(string[] args)
     {
-      _connections = new List<Websocket>();
       _sendQueue = new BufferBlock<UpdatePacket>();
       _changedSquares = new BufferBlock<Square[]>();
       _changedPlayers = new BufferBlock<PlayerState>();
       _playerInputs = new BufferBlock<PlayerState>();
-      _connectionLock = new SemaphoreSlim(1);
-      
+      _connectionHub = new ConnectionHub();
+      _taskQueue = new BufferBlock<Func<GamePointer, Task>>();
 
       Init().Wait();
 
@@ -48,12 +48,16 @@ namespace minesweepers
       await Listen();
     }
 
-    static async Task RunGame(BufferBlock<PlayerState> playerInputs, BufferBlock<Square[]> changedSquares, BufferBlock<PlayerState> changedPlayers)
+    static async Task RunGameTasks()
     {
+      var gp = new GamePointer();
+      gp.Game = new Sweeper();
+
       while (true)
       {
-        _game = new Sweeper();
-        await _game.Run(playerInputs, changedSquares, changedPlayers);
+        var task = await _taskQueue.ReceiveAsync();
+        await task(gp);
+     
       }
     }
 
@@ -94,22 +98,48 @@ namespace minesweepers
         var next = await sendQueue.ReceiveAsync();
         var json = JSON.Serialize<UpdatePacket>(next);
 
+        await _connectionHub.Broadcast(json);
+        /*
         await _connectionLock.WaitAsync();
         foreach (var conn in _connections)
         {
           await conn.WriteFrame(json);
         }
         _connectionLock.Release();
-
+        */
       }
     }
 
     static async Task StartGame()
     {
-      Task.Run(()=>RunGame(_playerInputs,_changedSquares,_changedPlayers));
-      Task.Run(()=>SerializeChangedSquares(_changedSquares,_sendQueue));
-      Task.Run(()=>SerializeStateChanges(_changedPlayers,_sendQueue));
-      Task.Run(()=>PushUpdates(_sendQueue));
+
+      var task1 = Task.Run(()=>RunGameTasks());
+      var task2 = Task.Run(()=>SerializeChangedSquares(_changedSquares,_sendQueue));
+      var task3 = Task.Run(()=>SerializeStateChanges(_changedPlayers,_sendQueue));
+      var task4 = Task.Run(()=>PushUpdates(_sendQueue));
+      var task5 = Task.Run(async () =>
+      {
+        while (true)
+        {
+          var playerInput = await _playerInputs.ReceiveAsync();
+
+          await _taskQueue.SendAsync(async (gp) =>
+          {
+            var changedSquares = await gp.Game.Update(playerInput);
+            if (changedSquares.Length > 0)
+            {
+              await _changedSquares.SendAsync(changedSquares);
+            }
+
+            await _changedPlayers.SendAsync(playerInput);
+
+          });
+        }
+
+      });
+
+
+
     }
     
 
@@ -121,9 +151,7 @@ namespace minesweepers
       while (true)
       {
         var client = await listener.AcceptTcpClientAsync();
-
         ProcessRequest(client);
-        //context.Request.InputStream
 
       }
 
@@ -131,11 +159,50 @@ namespace minesweepers
 
     static async Task ProcessWebSocket(Websocket ws)
     {
-      await _connectionLock.WaitAsync();
-      _connections.Add(ws);
-      _connectionLock.Release();
+
+
+      var uc = new UserConnection() { Alive = true };
+      await _connectionHub.Add(uc);
+
+      Task.Run(async () =>
+      {
+        while (true)
+        {
+          var msg = await uc.Queue.ReceiveAsync();
+          //TODO:wtb closed channel
+          if (uc.Alive)
+          {
+            await ws.WriteFrame(msg);
+          }
+          else
+          {
+            return;
+          }
+        }
+        
+      });
+
+      var dsfsd = 45;
 
       string next;
+
+      await _taskQueue.SendAsync(async (gp) =>
+      {
+        var squares = gp.Game.GetSquares();
+
+        var json = JSON.Serialize<Square[]>(squares);
+        var packet = new UpdatePacket()
+        {
+          Type = "square",
+          Data = json
+        };
+
+        var j = JSON.Serialize<UpdatePacket>(packet);
+        await uc.Queue.SendAsync(j);
+
+      });
+
+      /*
       var squares = _game.GetSquares();
 
       var json = JSON.Serialize<Square[]>(squares);
@@ -147,6 +214,7 @@ namespace minesweepers
 
       var j = JSON.Serialize<UpdatePacket>(packet);
       await ws.WriteFrame(j);
+       * */
 
       while ((next = await ws.ReadFrame()) != null)
       {
@@ -158,22 +226,11 @@ namespace minesweepers
         {
           var update = JSON.Deserialize<PlayerState>(next);
           await _playerInputs.SendAsync(update);
-          /*
-          var packet = new UpdatePacket()
-          {
-            Type = "player",
-            Data = next
-          };
-          await sendQueue.SendAsync(packet);
-           * */
         }
-
   
       }
-
-      await _connectionLock.WaitAsync();
-      _connections.Remove(ws);
-      _connectionLock.Release();
+      uc.Alive = false;
+      await _connectionHub.Remove(uc);
 
     }
 
@@ -189,6 +246,7 @@ namespace minesweepers
       var headers = new Dictionary<string, string>();
       var queryStrings = new Dictionary<string, string>();
       string path = "";
+      string extension = "";
 
       var lines = new List<string>();
       var count = 0;
@@ -202,7 +260,7 @@ namespace minesweepers
         }
         else
         {
-          Action asdf = () =>
+          Action parsePath = () =>
           {
             var triple = next.Split(' ');
             if (triple.Length != 3)
@@ -211,18 +269,24 @@ namespace minesweepers
               return;
             }
 
-            var qs = triple[1].Split('?');
-            if (qs.Length >0 && qs[0].Length>0)
+            var fullPath = triple[1].Split('?');
+            if (fullPath.Length >0 && fullPath[0].Length>0)
             {
-              path = qs[0].Substring(1).ToLower();
+              path = fullPath[0].Substring(1).ToLower();
             }
-            if (qs.Length != 2)
+
+            if (path.IndexOf('.') >= -1)
+            {
+              extension = path.Split('.').Last();
+            }
+
+            if (fullPath.Length != 2)
             {
               //no query string
               return;
             }
 
-            var kvps = qs[1].Split('&');
+            var kvps = fullPath[1].Split('&');
             foreach (var kvp in kvps)
             {
               var split = kvp.Split('=');
@@ -233,10 +297,13 @@ namespace minesweepers
             }
           };
 
-          asdf();
+          parsePath();
         }
         count++;
       }
+
+      var okextensions = new[] { "html", "js", "css" };
+      string RESPONSE = "HTTP/1.1 200 OK\r\nContent-Length: {0}\r\nContent-Type: {1}; charset=UTF-8\r\nServer: Example\r\nDate: Wed, 17 Apr 2013 12:00:00 GMT\r\n\r\n{2}";
 
       switch (path)
       {
@@ -245,11 +312,28 @@ namespace minesweepers
           await ProcessWebSocket(ws);
           break;
         case "":
-          string RESPONSE = "HTTP/1.1 200 OK\r\nContent-Length: {0}\r\nContent-Type: {1}; charset=UTF-8\r\nServer: Example\r\nDate: Wed, 17 Apr 2013 12:00:00 GMT\r\n\r\n{2}";
-          var body = File.ReadAllText("index.html");
+          
+          var body = File.ReadAllText("content/"+"index.html");
           await writer.WriteAsync(string.Format(RESPONSE, body.Length, "text/html", body));
           break;
         default:
+          path = "content/" + path;
+          if (extension == "html")
+          {
+            var content = File.ReadAllText(path);
+            await writer.WriteAsync(string.Format(RESPONSE, content.Length, "text/html", content));
+          }
+          else if (extension == "js")
+          {
+            var content = File.ReadAllText(path);
+            await writer.WriteAsync(string.Format(RESPONSE, content.Length, "text/javascript", content));
+          }
+          else if (extension == "css")
+          {
+            var content = File.ReadAllText(path);
+            await writer.WriteAsync(string.Format(RESPONSE, content.Length, "text/css", content));
+          }
+
           break;
       }
 
@@ -259,5 +343,10 @@ namespace minesweepers
 
 
     }
+  }
+
+  public class GamePointer
+  {
+    public Sweeper Game { get; set; }
   }
 }

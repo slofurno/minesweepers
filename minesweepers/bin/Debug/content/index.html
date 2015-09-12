@@ -63,7 +63,7 @@
       position:fixed;
       left:800px;
       top:100px;
-      width:150px;
+      width:250px;
       height:500px;
     }
 
@@ -71,7 +71,7 @@
       position:fixed;
       left:800px;
       top:0;
-      width:150px;
+      width:250px;
       height:100px;
     }
 
@@ -100,18 +100,42 @@
       color:magenta;
     }
 
+    .scoreboard-row{
+      height:2em;
+    }
+
+    .scoreboard-row > *{
+      display:inline-block;
+      white-space:nowrap;
+    }
+
   </style>
 </head>
 <body>
 
   <div id="scoreboard" class="options-menu">
 
-    <input id="playerName" type="text"/>
-    <select id="playerColors" style="width:40px; display:inline-block">
-    </select>
-    <div id="displayColor" style="width:40px;height:20px;display:inline-block"></div>
+    <div class="scoreboard-row">
+      <label>name: </label>
+      <input id="playerName" type="text" />
+    </div>
+    <div class="scoreboard-row">
+      <label>color: </label>
+      <select id="playerColors" style="width:40px;vertical-align:middle"></select>
+      <div id="displayColor" style="width:40px;height:20px;border:1px solid black;vertical-align:middle"></div>
+    </div>
+
+    <div id="scoreboard2" class="scoreboard" style="background-color:lightslategray">
+
+    </div>
+
+
+    
+    <input id="connectButton" type="button" value="connect"/>
 
   </div>
+
+  <script src="/js/mithril.min.js"></script>
 
   <script>
 
@@ -136,6 +160,10 @@
       var color = e.target.value;
       myColor = color;
       document.getElementById("displayColor").style.backgroundColor = color;
+    };
+
+    connectButton.onclick = function (e) {
+      isReady = true;
     };
 
     document.getElementById("playerName").onchange = function (e) {
@@ -167,9 +195,11 @@
     
     document.body.appendChild(minefield);
 
+    var scoreboard2 = document.getElementById("scoreboard2");
+
     var scoreboard = document.createElement('div');
-    scoreboard.className = "scoreboard";
-    document.body.appendChild(scoreboard);
+   // scoreboard.className = "scoreboard";
+    //document.body.appendChild(scoreboard);
 
     for (var i = 0; i < (30 * 20) ; i++) {
       var ms = document.createElement('div');
@@ -188,12 +218,15 @@
       var update = JSON.parse(e.data);
       var data = JSON.parse(update.Data);
 
+      m.startComputation();
+
       if (update.Type == "player") {
         updatePlayer(data);
       } else {
         updateSquare(data);
       }
       
+      m.endComputation();
 
     };
 
@@ -210,6 +243,8 @@
     }
 
     function updatePlayer(update) {
+
+      sb.vm.addPlayer(update);
 
       Colors[update.Hash] = update.Color;
 
@@ -255,6 +290,11 @@
     function updateSquare(update) {
 
       update.forEach(function (square) {
+
+        if (square.Owner != null) {
+          sb.vm.addSquare(square);
+        }
+
         var el = mines[square.Index];
 
         if (square.Flagged) {
@@ -320,13 +360,14 @@
 
     var hadInput = false;
     var isConnected = false;
+    var isReady = false;
     
 
     setInterval(function () {
 
       parts.Update(33);
 
-      if (!hadInput||!isConnected) {
+      if (!hadInput || !isConnected || !isReady) {
         return;
       }
 
@@ -458,7 +499,69 @@
     }
 
 
-    
+    var sb = {};
+
+    sb.Player = function (player) {
+      this.Hash = m.prop(player.Hash);
+      this.Name = m.prop(player.Name);
+      this.Color = m.prop(player.Name);
+    };
+
+    sb.Square = function (square) {
+      this.Owner = m.prop(square.Owner);
+    };
+
+    sb.vm = (function () {
+      var vm = {};
+
+      vm.init = function () {
+        vm.players = [];
+        vm.squares = [];
+        vm.addPlayer = function (player) {
+          var match = vm.players.filter(function (p) {
+            return p.Hash() == player.Hash;
+          });
+
+          if (match.length === 0) {
+            vm.players.push(new sb.Player(player));
+          }
+
+          console.log(vm.players);
+
+        };
+
+        vm.addSquare = function (square) {
+          vm.squares.push(new sb.Square(square));
+          console.log("square added", square);
+        };
+
+        vm.addPlayer({ Name: "steve", Hash: "asdf" });
+        vm.addSquare({ Owner: "asdf" });
+        vm.addSquare({ Owner: "asdf" });
+
+      };
+
+      return vm;
+    }())
+
+    sb.controller = function () {
+      sb.vm.init();
+    };
+
+    sb.view = function () {
+      return m("table", [
+        sb.vm.players.map(function (player) {
+          return m("tr", [
+            m("td", player.Name()),
+            m("td", sb.vm.squares.filter(function (square) {
+              return square.Owner() == player.Hash();
+            }).length)
+          ])
+        })
+      ]);
+    };
+
+    m.mount(scoreboard2, {controller:sb.controller,view:sb.view});
 
     /*
     function PlayerState() {
