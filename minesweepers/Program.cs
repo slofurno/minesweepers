@@ -161,30 +161,32 @@ namespace minesweepers
     {
 
 
-      var uc = new UserConnection() { Alive = true };
+      var uc = new UserConnection();
       await _connectionHub.Add(uc);
+
+      var closed = new UnbufferedChannel();
 
       Task.Run(async () =>
       {
-        while (true)
+        /*
+        String packet;
+
+        while (uc.Alive && (packet = await uc.Queue.ReceiveAsync()) != null)
         {
-          var msg = await uc.Queue.ReceiveAsync();
-          //TODO:wtb closed channel
-          if (uc.Alive)
-          {
-            await ws.WriteFrame(msg);
-          }
-          else
-          {
-            return;
-          }
+          await ws.WriteFrame(packet);
         }
+        */
+        string next;
+        while ((next = await ws.ReadFrame()) != null)
+        {
+          var update = JSON.Deserialize<PlayerState>(next);
+          await _playerInputs.SendAsync(update);
+        }
+        await closed.PostAsync(true);
         
       });
 
-      var dsfsd = 45;
-
-      string next;
+      
 
       await _taskQueue.SendAsync(async (gp) =>
       {
@@ -202,34 +204,36 @@ namespace minesweepers
 
       });
 
-      /*
-      var squares = _game.GetSquares();
-
-      var json = JSON.Serialize<Square[]>(squares);
-      var packet = new UpdatePacket()
+      Func<Task> writeUntilClosed = async () =>
       {
-        Type = "square",
-        Data = json
+        while (true)
+        {
+          var waitClosed = closed.ReceiveAsync();
+          var waitQueue = uc.Queue.ReceiveAsync();
+
+          var first = await Task.WhenAny(waitClosed, waitQueue);
+
+          if (first == waitClosed)
+          {
+            return;
+          }
+
+          var packet = await waitQueue;
+          await ws.WriteFrame(packet);
+        }
       };
 
-      var j = JSON.Serialize<UpdatePacket>(packet);
-      await ws.WriteFrame(j);
-       * */
+      await writeUntilClosed();
 
+      /*
       while ((next = await ws.ReadFrame()) != null)
       {
-        if (string.IsNullOrEmpty(next))
-        {
-          var what = "sdgfsd";
-        }
-        else
-        {
-          var update = JSON.Deserialize<PlayerState>(next);
-          await _playerInputs.SendAsync(update);
-        }
-  
+        var update = JSON.Deserialize<PlayerState>(next);
+        await _playerInputs.SendAsync(update);
       }
-      uc.Alive = false;
+       * */
+
+      //await uc.Queue.SendAsync(null);
       await _connectionHub.Remove(uc);
 
     }

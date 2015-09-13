@@ -26,6 +26,11 @@ namespace minesweepers
       {
         await Lock.WaitAsync();
 
+        foreach (var conn in Connections)
+        {
+          await conn.Queue.SendAsync(update);
+        }
+        /*
         for (var i = Connections.Count-1; i >= 0; i--)
         {
           var conn = Connections[i];
@@ -38,6 +43,7 @@ namespace minesweepers
             Connections.RemoveAt(i);
           }
         }
+         * */
 
       }
       finally
@@ -77,7 +83,6 @@ namespace minesweepers
   public class UserConnection
   {
     public BufferBlock<String> Queue { get; set; }
-    public bool Alive { get; set; }
 
     public UserConnection()
     {
