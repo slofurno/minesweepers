@@ -33,4 +33,23 @@ namespace minesweepers
     }
 
   }
+
+  public class CloseChannel
+  {
+    TaskCompletionSource<bool> closed;
+    public CloseChannel()
+    {
+      closed = new TaskCompletionSource<bool>();
+    }
+
+    public void Close()
+    {
+      closed.TrySetResult(true);
+    }
+
+    public Task<bool> WaitCloseAsync()
+    {
+      return closed.Task;
+    }
+  }
 }

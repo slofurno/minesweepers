@@ -159,31 +159,31 @@ namespace minesweepers
 
     static async Task ProcessWebSocket(Websocket ws)
     {
-
-
       var uc = new UserConnection();
       await _connectionHub.Add(uc);
+      /*
+       * TODO:think about this. i think this is still the best option so far but it doesnt scale to more select cases
+       * how to cancel a yielded task that may never finish?
+       * */
+      bool closed = false;
 
-      var closed = new UnbufferedChannel();
+      Func<Task> onSocketClose = async () =>
+      {
+        closed = true;
+        await uc.Queue.SendAsync(null);
+      };
 
       Task.Run(async () =>
       {
-        /*
-        String packet;
-
-        while (uc.Alive && (packet = await uc.Queue.ReceiveAsync()) != null)
-        {
-          await ws.WriteFrame(packet);
-        }
-        */
+   
         string next;
         while ((next = await ws.ReadFrame()) != null)
         {
           var update = JSON.Deserialize<PlayerState>(next);
           await _playerInputs.SendAsync(update);
         }
-        await closed.PostAsync(true);
-        
+
+        await onSocketClose();
       });
 
       
@@ -208,32 +208,19 @@ namespace minesweepers
       {
         while (true)
         {
-          var waitClosed = closed.ReceiveAsync();
-          var waitQueue = uc.Queue.ReceiveAsync();
+          var packet = await uc.Queue.ReceiveAsync();
 
-          var first = await Task.WhenAny(waitClosed, waitQueue);
-
-          if (first == waitClosed)
+          if (closed)
           {
             return;
           }
 
-          var packet = await waitQueue;
           await ws.WriteFrame(packet);
         }
       };
 
       await writeUntilClosed();
-
-      /*
-      while ((next = await ws.ReadFrame()) != null)
-      {
-        var update = JSON.Deserialize<PlayerState>(next);
-        await _playerInputs.SendAsync(update);
-      }
-       * */
-
-      //await uc.Queue.SendAsync(null);
+      Console.WriteLine("disconnected");
       await _connectionHub.Remove(uc);
 
     }
