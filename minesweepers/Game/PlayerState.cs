@@ -20,4 +20,31 @@ namespace minesweepers
     public int Init { get; set; }
 
   }
+
+  public class PlayerCommand
+  {
+    public string Type { get; set; }
+    public string RawCommand { get; set; }
+    public string Hash { get; set; }
+  }
+
+  public class RevealCommand
+  {
+    public int Index { get; set; }
+  }
+
+  public class FlagCommand
+  {
+    public int Index { get; set; }
+  }
+
+  public class MoveCommand
+  {
+    public int X { get; set; }
+    public int Y { get; set; }
+  }
+
+ 
+
+
 }

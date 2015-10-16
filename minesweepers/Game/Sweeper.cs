@@ -10,7 +10,7 @@ namespace minesweepers.Game
   public class Sweeper
   {
     private Dictionary<String, PlayerState> players;
-    private Square[,] squares;
+    private Square[] _squares;
     private int width;
     private int height;
     private int _remainingSquares;
@@ -23,38 +23,32 @@ namespace minesweepers.Game
       width = 30;
       height = 20;
       players = new Dictionary<string, PlayerState>();
-      squares = new Square[width,height];
+      _squares = new Square[width * height];
       _remainingSquares = width * height;
       LiveBombs = 0;
 
-      var index = 0;
-
-      for (var j = 0; j < height; j++)
+      for (int i = 0; i < width*height; i++)
       {
-        for (var i = 0; i < width; i++)
+        _squares[i] = new Square() { Index = i };
+        if (rng.Next(100) > 85)
         {
-          squares[i, j] = new Square();
-          squares[i, j].Index = index;
-          index++;
-
-          if (rng.Next(100) > 85)
-          {
-            LiveBombs += 1;
-            squares[i, j].Mined = true;
-          }
+          LiveBombs += 1;
+          _squares[i].Mined = true;
         }
       }
+
 
       for (var i = 0; i < width; i++)
       {
         for (var j = 0; j < height; j++)
         {
-          squares[i, j].Neighbors = CalculateNeighbors(i, j);
+          var index = j * width + i;
+          _squares[index].Neighbors = CalculateNeighbors(i, j);
         }
       }
 
     }
-
+    /*
     public async Task Run(BufferBlock<PlayerState> playerInputs, BufferBlock<Square[]> squareChanges, BufferBlock<PlayerState> playerChanges)
     {
 
@@ -73,7 +67,72 @@ namespace minesweepers.Game
         await playerChanges.SendAsync(input);
       }
     }
+    */
+    public List<Square> Update(FlagCommand command, PlayerState player)
+    {
+      var square = _squares[command.Index];
+      var changed = new List<Square>();
 
+      if (square.Revealed || square.Flagged)
+      {
+
+      }
+      else if (square.Mined)
+      {
+        square.Flagged = true;
+        square.Owner = player.Hash;
+        changed.Add(square);
+        player.Points++;
+        LiveBombs--;
+      }
+      else
+      {
+        player.Dead = true;
+      }
+
+      return changed;
+
+
+    }
+
+    public List<Square> Update(MoveCommand command, PlayerState player)
+    {
+      player.X = command.X;
+      player.Y = command.Y;
+
+      return new List<Square>();
+    }
+
+    public List<Square> Update(RevealCommand command, PlayerState player)
+    {
+      var square = _squares[command.Index];
+      var changed = new List<Square>();
+
+
+      if (square.Revealed || square.Flagged)
+      {
+        
+      }
+      else if (square.Mined)
+      {
+        //clicked bomb
+        player.Dead = true;
+        square.Revealed = true;
+        changed.Add(square);
+      }
+      else
+      {
+        //index = y * width + x
+        int y = command.Index / width;
+        int x = command.Index % width;
+        var revealed = Reveal(x, y);
+        changed.AddRange(revealed);
+      }
+
+      return changed;
+
+    }
+    /*
     public async Task<Square[]> Update(PlayerState update)
     {
       PlayerState state;
@@ -162,7 +221,6 @@ namespace minesweepers.Game
       annoymousClosure();
       return changedSquares.ToArray();
 
-      /*
       var cs = changedSquares.Count;
 
       if (cs > 0)
@@ -171,28 +229,20 @@ namespace minesweepers.Game
       }
 
       return null;
-      */
+   
     }
+
+  **/
 
     public Square[] GetSquares()
     {
-
-      var s = new List<Square>();
-
-      for (int j = 0; j < height; j++)
-      {
-        for (int i = 0; i < width; i++)
-        {
-          s.Add(squares[i, j]);
-        }
-      }
-
-      return s.ToArray();
+      return _squares.ToArray();
     }
 
     public IEnumerable<Square> Reveal(int x, int y)
     {
-      var square = squares[x, y];
+      var index = y * width + x;
+      var square = _squares[index];
       if (square.Revealed)
       {
         yield break;
@@ -242,7 +292,9 @@ namespace minesweepers.Game
 
           if (!(i == 0 && j == 0) && (realx >= 0 && realx < width && realy >= 0 && realy < height))
           {
-            if (squares[realx, realy].Mined)
+            var index = realy * width + realx;
+
+            if (_squares[index].Mined)
             {
               neighbors++;
             }

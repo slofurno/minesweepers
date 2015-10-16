@@ -19,7 +19,7 @@ namespace minesweepers
   class Program
   {
 
-    static BufferBlock<PlayerState> _playerInputs;
+    static BufferBlock<PlayerCommand> _playerInputs;
     static BufferBlock<Square[]> _changedSquares;
     static BufferBlock<UpdatePacket> _sendQueue;
 
@@ -27,6 +27,7 @@ namespace minesweepers
     static BufferBlock<Func<GamePointer,Task>>_taskQueue;
 
     static ConnectionHub _connectionHub;
+    static Dictionary<string, PlayerState> _players;
     
 
     static void Main(string[] args)
@@ -34,9 +35,10 @@ namespace minesweepers
       _sendQueue = new BufferBlock<UpdatePacket>();
       _changedSquares = new BufferBlock<Square[]>();
       _changedPlayers = new BufferBlock<PlayerState>();
-      _playerInputs = new BufferBlock<PlayerState>();
+      _playerInputs = new BufferBlock<PlayerCommand>();
       _connectionHub = new ConnectionHub();
       _taskQueue = new BufferBlock<Func<GamePointer, Task>>();
+      _players = new Dictionary<string, PlayerState>();
 
       Init().Wait();
 
@@ -110,6 +112,21 @@ namespace minesweepers
       }
     }
 
+    static dynamic ParseCommand(PlayerCommand command)
+    {
+      switch (command.Type)
+      {
+        case "flag":
+          return JSON.Deserialize<FlagCommand>(command.RawCommand);
+        case "reveal":
+          return JSON.Deserialize<RevealCommand>(command.RawCommand);
+        case "move":
+          return JSON.Deserialize<MoveCommand>(command.RawCommand);
+        default:
+          return null;
+      }
+    }
+
     static async Task StartGame()
     {
 
@@ -121,7 +138,53 @@ namespace minesweepers
       {
         while (true)
         {
-          var playerInput = await _playerInputs.ReceiveAsync();
+          var raw = await _playerInputs.ReceiveAsync();
+          PlayerState player;
+          if (!_players.TryGetValue(raw.Hash, out player) || player.Dead)
+          {
+            continue;
+          }
+
+          dynamic command = ParseCommand(raw);
+
+          if (command == null)
+          {
+            continue;
+          }
+
+          await _taskQueue.SendAsync(async (gp) =>
+          {
+            List<Square> changedSquares = gp.Game.Update(command, player);
+            if (changedSquares.Count > 0)
+            {
+              await _changedSquares.SendAsync(changedSquares.ToArray());
+            }
+
+            await _changedPlayers.SendAsync(player);
+
+          });
+
+          /*
+          switch (raw.Type)
+          {
+            case "flag":
+              var flagCommand = JSON.Deserialize<FlagCommand>(raw.RawCommand);
+
+              break;
+            case "reveal":
+              var revealCommand = JSON.Deserialize<RevealCommand>(raw.RawCommand);
+
+              break;
+            case "move":
+              var moveCommand = JSON.Deserialize<MoveCommand>(raw.RawCommand);
+
+              break;
+          }
+          */
+
+
+          /*
+          dynamic command = ParseCommand(rawcommand);
 
           await _taskQueue.SendAsync(async (gp) =>
           {
@@ -134,6 +197,8 @@ namespace minesweepers
             await _changedPlayers.SendAsync(playerInput);
 
           });
+          */
+
         }
 
       });
@@ -161,38 +226,36 @@ namespace minesweepers
     {
       var uc = new UserConnection();
       await _connectionHub.Add(uc);
-      /*
-       * TODO:think about this. i think this is still the best option so far but it doesnt scale to more select cases
-       * how to cancel a yielded task that may never finish?
-       * */
       bool closed = false;
+      var hash = Guid.NewGuid().ToString();
 
-      Func<Task> onSocketClose = async () =>
-      {
-        closed = true;
-        await uc.Queue.SendAsync(null);
-      };
+      _players.Add(hash, new PlayerState());
+
+      var initPacket = new UpdatePacket() { Type = "init", Data = hash };
+      var ip = JSON.Serialize(initPacket);
+      await uc.Queue.SendAsync(ip);
 
       Task.Run(async () =>
       {
-   
         string next;
         while ((next = await ws.ReadFrame()) != null)
         {
-          var update = JSON.Deserialize<PlayerState>(next);
+          var update = JSON.Deserialize<PlayerCommand>(next);
+          update.Hash = hash;
           await _playerInputs.SendAsync(update);
         }
 
-        await onSocketClose();
+        closed = true;
+        await uc.Queue.SendAsync(null);
       });
 
       
 
       await _taskQueue.SendAsync(async (gp) =>
       {
-        var squares = gp.Game.GetSquares();
+        var squares = gp.Game.GetSquares().Select(x => new SquareDTO(x)).ToArray();
 
-        var json = JSON.Serialize<Square[]>(squares);
+        var json = JSON.Serialize<SquareDTO[]>(squares);
         var packet = new UpdatePacket()
         {
           Type = "square",
@@ -299,7 +362,7 @@ namespace minesweepers
       switch (path)
       {
         case "ws":
-          var ws = await Upgrader.Upgrade(rw, headers);
+          var ws = await Websocket.Upgrade(rw, headers);
           await ProcessWebSocket(ws);
           break;
         case "":
@@ -312,17 +375,26 @@ namespace minesweepers
           if (extension == "html")
           {
             var content = File.ReadAllText(path);
+            
             await writer.WriteAsync(string.Format(RESPONSE, content.Length, "text/html", content));
           }
           else if (extension == "js")
           {
             var content = File.ReadAllText(path);
-            await writer.WriteAsync(string.Format(RESPONSE, content.Length, "text/javascript", content));
+            var bytes = Encoding.UTF8.GetBytes(content);
+
+            await writer.WriteAsync(string.Format(RESPONSE, bytes.Length, "text/javascript", content));
           }
           else if (extension == "css")
           {
             var content = File.ReadAllText(path);
             await writer.WriteAsync(string.Format(RESPONSE, content.Length, "text/css", content));
+          }
+          else if (extension == "ico")
+          {
+            var content = File.ReadAllText(path);
+            await writer.WriteAsync(string.Format(RESPONSE, content.Length, "image/x-icon", content));
+           
           }
 
           break;

@@ -16,3 +16,6 @@ C:\dev\csharp\minesweepers\minesweepers\bin\Debug\Sigil.xml
 C:\dev\csharp\minesweepers\minesweepers\bin\Debug\System.Threading.Tasks.Dataflow.xml
 C:\dev\csharp\minesweepers\minesweepers\bin\Debug\content\index.html
 C:\dev\csharp\minesweepers\minesweepers\bin\Debug\content\js\mithril.min.js
+C:\dev\csharp\minesweepers\minesweepers\bin\Debug\content\index - Copy.html
+C:\dev\csharp\minesweepers\minesweepers\bin\Debug\content\minesweepers.js
+C:\dev\csharp\minesweepers\minesweepers\bin\Debug\content\favicon.ico
