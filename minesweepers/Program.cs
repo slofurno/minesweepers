@@ -16,59 +16,59 @@ using System.Threading;
 
 namespace minesweepers
 {
+
+  class GamePointer
+  {
+    public Sweeper Game { get; set; }
+  }
+
   class Program
   {
 
-    static BufferBlock<PlayerCommand> _playerInputs;
-   
-    static ConnectionHub _connectionHub;
-    //static Dictionary<string, PlayerState> _players;
-
-    static BufferBlock<GameTask> _gameTasks;
-    
-
     static void Main(string[] args)
     {
-      _gameTasks = new BufferBlock<GameTask>();
-      _playerInputs = new BufferBlock<PlayerCommand>();
-      _connectionHub = new ConnectionHub();
-      //_players = new Dictionary<string, PlayerState>();
-
-      Init().Wait();
-
+      RunGame().Wait();
     }
 
-    static async Task Init()
+    static async Task RunGame()
     {
-      _connectionHub.StartWorker();
-      Task.Run(() => StartGame());
-      await Listen();
-    }
+      var connectionHub = new ConnectionHub();
+      var gameTasks = new BufferBlock<GameTask>();
+      var sendChannel = new BufferBlock<UpdatePacket>();
+      var players = new List<PlayerState>();
+      var gp = new GamePointer();
+      gp.Game = new Sweeper();
 
-    static async Task SerializeChangedSquares(BufferBlock<Square[]> changedSquares, BufferBlock<UpdatePacket> sendQueue)
-    {
+      Task listen = Listen(connectionHub, gameTasks);
+      Task hubworker = connectionHub.StartWorker();
+      Task pushupdates = PushUpdates(sendChannel, connectionHub);
+
       while (true)
       {
-        Square[] changed = await changedSquares.ReceiveAsync();
-        var json = JSON.Serialize<Square[]>(changed);
-        var packet = new UpdatePacket()
-        {
-          Type = "square",
-          Data = json
-        };
-        await sendQueue.SendAsync(packet);
+        var task = await gameTasks.ReceiveAsync();
+        await task.Process(gp, players, sendChannel);
       }
     }
 
-
-
-    static async Task PushUpdates(BufferBlock<UpdatePacket> sendQueue)
+    static async Task PushUpdates(BufferBlock<UpdatePacket> sendQueue, ConnectionHub connectionHub)
     {
       while (true)
       {
         var next = await sendQueue.ReceiveAsync();
         var json = JSON.Serialize<UpdatePacket>(next);
-        await _connectionHub.Broadcast(json);
+        await connectionHub.Broadcast(json);
+      }
+    }
+
+    static async Task Listen(ConnectionHub connectionHub, BufferBlock<GameTask> gameTasks)
+    {
+      var listener = new TcpListener(IPAddress.Any, 5678);
+      listener.Start();
+
+      while (true)
+      {
+        var client = await listener.AcceptTcpClientAsync();
+        ProcessRequest(client, connectionHub, gameTasks);
       }
     }
 
@@ -87,45 +87,38 @@ namespace minesweepers
       }
     }
 
-    static async Task StartGame()
+    static async Task ReadWebsocket(Websocket ws, BufferBlock<GameTask> gameTasks, UserConnection uc, PlayerState player)
     {
-      var sendChannel = new BufferBlock<UpdatePacket>();
-      var gp = new GamePointer();
-      var players = new List<PlayerState>();
-      gp.Game = new Sweeper();
-
-      var pushupdates = PushUpdates(sendChannel);
-
-      while (true)
+      string next;
+      while ((next = await ws.ReadFrame()) != null)
       {
-        //var task = await _taskQueue.ReceiveAsync();
-        //await task(gp);
-        var task = await _gameTasks.ReceiveAsync();
-        await task.Process(gp, players, sendChannel);
+        var update = JSON.Deserialize<PlayerCommand>(next);
 
+        if (player.Dead)
+        {
+          //this is now checked in two places, but at least dead players won't send move commands to the main work channel
+          continue;
+        }
+
+        dynamic command = ParseCommand(update);
+
+        if (command == null)
+        {
+          continue;
+        }
+
+        var updatetask = new UpdateTask(command, player);
+        await gameTasks.SendAsync(updatetask);
       }
 
-    }
-    
-
-    static async Task Listen()
-    {
-      var listener = new TcpListener(IPAddress.Any, 5678);
-      listener.Start();
-
-      while (true)
-      {
-        var client = await listener.AcceptTcpClientAsync();
-        ProcessRequest(client);
-
-      }
-
+      uc.Closed = true;
+      await uc.SendAsync(null);
     }
 
-    static async Task ProcessWebSocket(Websocket ws)
+    static async Task ProcessWebSocket(Websocket ws, ConnectionHub connectionHub, BufferBlock<GameTask> gameTasks)
     {
       var uc = new UserConnection(ws);
-      await _connectionHub.Add(uc);
+      await connectionHub.Add(uc);
 
       var hash = Guid.NewGuid().ToString();
       var player = new PlayerState() { Name = "player", Color = "blue", Hash = hash };
@@ -134,45 +127,17 @@ namespace minesweepers
       //var ip = JSON.Serialize(initPacket);
       //await uc.SendAsync(ip);
 
-      Task.Run(async () =>
-      {
-        string next;
-        while ((next = await ws.ReadFrame()) != null)
-        {
-          var update = JSON.Deserialize<PlayerCommand>(next);
-          update.Hash = hash;
-
-          if (player.Dead)
-          {
-            //this is now in two places, but at least dead players won't send move commands to the main work channel
-            continue;
-          }
-
-          dynamic command = ParseCommand(update);
-
-          if (command == null)
-          {
-            continue;
-          }
-
-          var updatetask = new UpdateTask(command, player);
-          await _gameTasks.SendAsync(updatetask);
-        }
-
-        uc.Closed = true;
-        await uc.SendAsync(null);
-      });
+      ReadWebsocket(ws, gameTasks, uc, player);
 
       var initTask = new InitTask(uc, player);
-      await _gameTasks.SendAsync(initTask);
+      await gameTasks.SendAsync(initTask);
 
       await uc.Worker();
       Console.WriteLine("disconnected");
-      await _connectionHub.Remove(uc);
-
+      await connectionHub.Remove(uc);
     }
 
-    static async Task ProcessRequest(TcpClient client)
+    static async Task ProcessRequest(TcpClient client, ConnectionHub connectionHub, BufferBlock<GameTask> gameTasks)
     {
       var rw = client.GetStream();
 
@@ -247,7 +212,7 @@ namespace minesweepers
       {
         case "ws":
           var ws = await Websocket.Upgrade(rw, headers);
-          await ProcessWebSocket(ws);
+          await ProcessWebSocket(ws, connectionHub, gameTasks);
           break;
         case "":
           
@@ -286,14 +251,8 @@ namespace minesweepers
 
       rw.Close();
 
-
-
-
     }
   }
 
-  public class GamePointer
-  {
-    public Sweeper Game { get; set; }
-  }
+
 }

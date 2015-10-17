@@ -25,7 +25,6 @@ namespace minesweepers
   {
     public string Type { get; set; }
     public string RawCommand { get; set; }
-    public string Hash { get; set; }
   }
 
   public class RevealCommand
