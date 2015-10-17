@@ -58,9 +58,11 @@
   <ItemGroup>
     <Compile Include="ConnectionHub.cs" />
     <Compile Include="Events\InputEvent.cs" />
+    <Compile Include="Game\GameRunner.cs" />
     <Compile Include="Game\Square.cs" />
     <Compile Include="Game\SquareUpdate.cs" />
     <Compile Include="Game\Sweeper.cs" />
+    <Compile Include="Game\Tasks.cs" />
     <Compile Include="Game\UpdatePacket.cs" />
     <Compile Include="Game\PlayerState.cs" />
     <Compile Include="Program.cs" />

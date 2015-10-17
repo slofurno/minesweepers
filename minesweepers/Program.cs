@@ -24,20 +24,23 @@ namespace minesweepers
     static BufferBlock<UpdatePacket> _sendQueue;
 
     static BufferBlock<PlayerState> _changedPlayers;
-    static BufferBlock<Func<GamePointer,Task>>_taskQueue;
+    //static BufferBlock<Func<GamePointer,Task>>_taskQueue;
 
     static ConnectionHub _connectionHub;
     static Dictionary<string, PlayerState> _players;
+
+    static BufferBlock<GameTask> _gameTasks;
     
 
     static void Main(string[] args)
     {
+      _gameTasks = new BufferBlock<GameTask>();
       _sendQueue = new BufferBlock<UpdatePacket>();
       _changedSquares = new BufferBlock<Square[]>();
       _changedPlayers = new BufferBlock<PlayerState>();
       _playerInputs = new BufferBlock<PlayerCommand>();
       _connectionHub = new ConnectionHub();
-      _taskQueue = new BufferBlock<Func<GamePointer, Task>>();
+      //_taskQueue = new BufferBlock<Func<GamePointer, Task>>();
       _players = new Dictionary<string, PlayerState>();
 
       Init().Wait();
@@ -57,8 +60,10 @@ namespace minesweepers
 
       while (true)
       {
-        var task = await _taskQueue.ReceiveAsync();
-        await task(gp);
+        //var task = await _taskQueue.ReceiveAsync();
+        //await task(gp);
+        var task = await _gameTasks.ReceiveAsync();
+        await task.Process(gp);
      
       }
     }
@@ -152,19 +157,9 @@ namespace minesweepers
             continue;
           }
 
-          await _taskQueue.SendAsync(async (gp) =>
-          {
-            List<Square> changedSquares = gp.Game.Update(command, player);
-            if (changedSquares.Count > 0)
-            {
-              await _changedSquares.SendAsync(changedSquares.ToArray());
-            }
+          var updatetask = new UpdateTask(command, player, _sendQueue);
+          await _gameTasks.SendAsync(updatetask);
 
-            await _changedPlayers.SendAsync(player);
-
-
-
-          });
         }
 
       });
@@ -190,17 +185,15 @@ namespace minesweepers
 
     static async Task ProcessWebSocket(Websocket ws)
     {
-      var uc = new UserConnection();
+      var uc = new UserConnection(ws);
       await _connectionHub.Add(uc);
-      bool closed = false;
+
       var hash = Guid.NewGuid().ToString();
-      var player = new PlayerState() { Name = "player", Color = "blue" };
+      var player = new PlayerState() { Name = "player", Color = "blue", Hash = hash };
 
-      _players.Add(hash, player);
-
-      var initPacket = new UpdatePacket() { Type = "init", Data = hash };
-      var ip = JSON.Serialize(initPacket);
-      await uc.Queue.SendAsync(ip);
+      //var initPacket = new UpdatePacket() { Type = "init", Data = hash };
+      //var ip = JSON.Serialize(initPacket);
+      //await uc.SendAsync(ip);
 
       Task.Run(async () =>
       {
@@ -209,47 +202,32 @@ namespace minesweepers
         {
           var update = JSON.Deserialize<PlayerCommand>(next);
           update.Hash = hash;
-          await _playerInputs.SendAsync(update);
-        }
 
-        closed = true;
-        await uc.Queue.SendAsync(null);
-      });
-
-      
-
-      await _taskQueue.SendAsync(async (gp) =>
-      {
-        var squares = gp.Game.GetSquares().Select(x => new SquareDTO(x)).ToArray();
-
-        var json = JSON.Serialize<SquareDTO[]>(squares);
-        var packet = new UpdatePacket()
-        {
-          Type = "square",
-          Data = json
-        };
-
-        var j = JSON.Serialize<UpdatePacket>(packet);
-        await uc.Queue.SendAsync(j);
-
-      });
-
-      Func<Task> writeUntilClosed = async () =>
-      {
-        while (true)
-        {
-          var packet = await uc.Queue.ReceiveAsync();
-
-          if (closed)
+          if (player.Dead)
           {
-            return;
+            //this is now in two places, but at least dead players won't send move commands to the main work channel
+            continue;
           }
 
-          await ws.WriteFrame(packet);
-        }
-      };
+          dynamic command = ParseCommand(update);
 
-      await writeUntilClosed();
+          if (command == null)
+          {
+            continue;
+          }
+
+          var updatetask = new UpdateTask(command, player, _sendQueue);
+          await _gameTasks.SendAsync(updatetask);
+        }
+
+        uc.Closed = true;
+        await uc.SendAsync(null);
+      });
+
+      var initTask = new InitTask(uc, player, _players);
+      await _gameTasks.SendAsync(initTask);
+
+      await uc.Worker();
       Console.WriteLine("disconnected");
       await _connectionHub.Remove(uc);
 

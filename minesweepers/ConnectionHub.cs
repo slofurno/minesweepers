@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using minesweepers.Game;
 using System.Threading;
 using System.Threading.Tasks.Dataflow;
+using cs_websocket;
 
 namespace minesweepers
 {
@@ -22,13 +23,13 @@ namespace minesweepers
 
     public async Task Broadcast(String update)
     {
+      await Lock.WaitAsync();
+
       try
       {
-        await Lock.WaitAsync();
-
         foreach (var conn in Connections)
         {
-          await conn.Queue.SendAsync(update);
+          await conn.SendAsync(update);
         }
         /*
         for (var i = Connections.Count-1; i >= 0; i--)
@@ -44,7 +45,6 @@ namespace minesweepers
           }
         }
          * */
-
       }
       finally
       {
@@ -82,12 +82,34 @@ namespace minesweepers
 
   public class UserConnection
   {
-    public BufferBlock<String> Queue { get; set; }
+    private Websocket _ws;
+    private BufferBlock<String> _queue;
+    public bool Closed { get; set; }
 
-    public UserConnection()
+    public UserConnection(Websocket websocket)
     {
-      Queue = new BufferBlock<String>();
+      _ws = websocket;
+      _queue = new BufferBlock<String>();
     }
+
+    public Task<bool> SendAsync(string str)
+    {
+      return _queue.SendAsync(str);
+    }
+
+    public async Task Worker()
+    {
+      while (true)
+      {
+        var packet = await _queue.ReceiveAsync();
+        if (Closed)
+        {
+          return;
+        }
+        await _ws.WriteFrame(packet);
+      }
+    }
+
   }
 
 }

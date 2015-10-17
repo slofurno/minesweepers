@@ -24,9 +24,10 @@ sb.vm = (function () {
     vm.CSS_COLOR_NAMES = ["AliceBlue", "AntiqueWhite", "Aqua", "Aquamarine", "Azure", "Beige", "Bisque", "Black", "BlanchedAlmond", "Blue", "BlueViolet", "Brown", "BurlyWood", "CadetBlue", "Chartreuse", "Chocolate", "Coral", "CornflowerBlue", "Cornsilk", "Crimson", "Cyan", "DarkBlue", "DarkCyan", "DarkGoldenRod", "DarkGray", "DarkGrey", "DarkGreen", "DarkKhaki", "DarkMagenta", "DarkOliveGreen", "Darkorange", "DarkOrchid", "DarkRed", "DarkSalmon", "DarkSeaGreen", "DarkSlateBlue", "DarkSlateGray", "DarkSlateGrey", "DarkTurquoise", "DarkViolet", "DeepPink", "DeepSkyBlue", "DimGray", "DimGrey", "DodgerBlue", "FireBrick", "FloralWhite", "ForestGreen", "Fuchsia", "Gainsboro", "GhostWhite", "Gold", "GoldenRod", "Gray", "Grey", "Green", "GreenYellow", "HoneyDew", "HotPink", "IndianRed", "Indigo", "Ivory", "Khaki", "Lavender", "LavenderBlush", "LawnGreen", "LemonChiffon", "LightBlue", "LightCoral", "LightCyan", "LightGoldenRodYellow", "LightGray", "LightGrey", "LightGreen", "LightPink", "LightSalmon", "LightSeaGreen", "LightSkyBlue", "LightSlateGray", "LightSlateGrey", "LightSteelBlue", "LightYellow", "Lime", "LimeGreen", "Linen", "Magenta", "Maroon", "MediumAquaMarine", "MediumBlue", "MediumOrchid", "MediumPurple", "MediumSeaGreen", "MediumSlateBlue", "MediumSpringGreen", "MediumTurquoise", "MediumVioletRed", "MidnightBlue", "MintCream", "MistyRose", "Moccasin", "NavajoWhite", "Navy", "OldLace", "Olive", "OliveDrab", "Orange", "OrangeRed", "Orchid", "PaleGoldenRod", "PaleGreen", "PaleTurquoise", "PaleVioletRed", "PapayaWhip", "PeachPuff", "Peru", "Pink", "Plum", "PowderBlue", "Purple", "Red", "RosyBrown", "RoyalBlue", "SaddleBrown", "Salmon", "SandyBrown", "SeaGreen", "SeaShell", "Sienna", "Silver", "SkyBlue", "SlateBlue", "SlateGray", "SlateGrey", "Snow", "SpringGreen", "SteelBlue", "Tan", "Teal", "Thistle", "Tomato", "Turquoise", "Violet", "Wheat", "White", "WhiteSmoke", "Yellow", "YellowGreen"];
 
 
-    vm.updatePlayer = function (player) {
-      console.log(player);
-      vm.players.add(player.Hash, player);
+    vm.updatePlayer = function (update) {
+      var players = [].concat(update).forEach(function(player){
+        vm.players.add(player.Hash, player);
+      });
     };
 
     vm.addSquare2 = function (square) {
@@ -39,11 +40,6 @@ sb.vm = (function () {
         vm.squares.add(square.Index, square);
       });
     };
-
-
-
-  //  vm.updatePlayer({ Name: "steve", Hash: "asdf" });
-
 
   };
 
@@ -79,7 +75,6 @@ sb.controller = function () {
 
   return{
     clickMine:function(e){
-
       e.preventDefault();
       m.redraw.strategy("none");
 
@@ -96,7 +91,6 @@ sb.controller = function () {
       var update = {Type:type,RawCommand:innerjson};
       var json = JSON.stringify(update);
       ws.send(json);
-
     },
     mouseMove:function(e){
       e.preventDefault();
@@ -115,10 +109,7 @@ sb.controller = function () {
       var color = sb.vm.color();
       console.log(name,color);
     }
-
   };
-
-
 };
 
 sb.view = function (ctrl) {
