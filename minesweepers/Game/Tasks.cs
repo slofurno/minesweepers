@@ -11,31 +11,29 @@ namespace minesweepers.Game
 
   interface GameTask
   {
-    Task Process(GamePointer gamepointer);
+    Task Process(GamePointer gamePointer, List<PlayerState> players, BufferBlock<UpdatePacket> sendChannel);
   }
 
-
+  //could use a visitor interface for commands rather then dynamic
   class UpdateTask : GameTask
   {
-    private BufferBlock<UpdatePacket> _sendChannel;
     private PlayerState _player;
     private dynamic _command;
 
-    public UpdateTask(dynamic command, PlayerState player, BufferBlock<UpdatePacket> sendChannel)
+    public UpdateTask(dynamic command, PlayerState player)
     {
-      _sendChannel = sendChannel;
       _player = player;
       _command = command;
     }
 
-    public async Task Process(GamePointer gp)
+    public async Task Process(GamePointer gamePointer, List<PlayerState> players, BufferBlock<UpdatePacket> sendChannel)
     {
       if (_player.Dead)
       {
         return;
       }
 
-      List<Square> changedSquares = gp.Game.Update(_command, _player);
+      List<Square> changedSquares = gamePointer.Game.Update(_command, _player);
       if (changedSquares.Count > 0)
       {
         var json = JSON.Serialize<Square[]>(changedSquares.ToArray());
@@ -44,7 +42,7 @@ namespace minesweepers.Game
           Type = "square",
           Data = json
         };
-        await _sendChannel.SendAsync(packet);
+        await sendChannel.SendAsync(packet);
       }
 
       var player = JSON.Serialize<PlayerState>(_player);
@@ -53,27 +51,25 @@ namespace minesweepers.Game
         Type = "player",
         Data = player
       };
-      await _sendChannel.SendAsync(pp);
+      await sendChannel.SendAsync(pp);
     }
   }
 
   class InitTask : GameTask
   {
     private UserConnection _uc;
-    private Dictionary<string, PlayerState> _players;
     private PlayerState _player;
 
-    public InitTask(UserConnection uc, PlayerState player, Dictionary<string,PlayerState> players)
+    public InitTask(UserConnection uc, PlayerState player)
     {
       _uc = uc;
       _player = player;
-      _players = players;
     }
 
-    public async Task Process(GamePointer gp)
+    public async Task Process(GamePointer gp, List<PlayerState> players, BufferBlock<UpdatePacket> sendChannel)
     {
 
-      _players.Add(_player.Hash, _player);
+      players.Add(_player);
 
       var squares = gp.Game.GetSquares().Select(x => new SquareDTO(x)).ToArray();
 
@@ -87,9 +83,7 @@ namespace minesweepers.Game
       var j = JSON.Serialize<UpdatePacket>(packet);
       await _uc.SendAsync(j);
 
-      var players = _players.Values.ToArray();
-
-      var json2 = JSON.Serialize<PlayerState[]>(players);
+      var json2 = JSON.Serialize<PlayerState[]>(players.ToArray());
       var packet2 = new UpdatePacket()
       {
         Type = "player",

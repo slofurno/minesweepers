@@ -20,14 +20,9 @@ namespace minesweepers
   {
 
     static BufferBlock<PlayerCommand> _playerInputs;
-    static BufferBlock<Square[]> _changedSquares;
-    static BufferBlock<UpdatePacket> _sendQueue;
-
-    static BufferBlock<PlayerState> _changedPlayers;
-    //static BufferBlock<Func<GamePointer,Task>>_taskQueue;
-
+   
     static ConnectionHub _connectionHub;
-    static Dictionary<string, PlayerState> _players;
+    //static Dictionary<string, PlayerState> _players;
 
     static BufferBlock<GameTask> _gameTasks;
     
@@ -35,13 +30,9 @@ namespace minesweepers
     static void Main(string[] args)
     {
       _gameTasks = new BufferBlock<GameTask>();
-      _sendQueue = new BufferBlock<UpdatePacket>();
-      _changedSquares = new BufferBlock<Square[]>();
-      _changedPlayers = new BufferBlock<PlayerState>();
       _playerInputs = new BufferBlock<PlayerCommand>();
       _connectionHub = new ConnectionHub();
-      //_taskQueue = new BufferBlock<Func<GamePointer, Task>>();
-      _players = new Dictionary<string, PlayerState>();
+      //_players = new Dictionary<string, PlayerState>();
 
       Init().Wait();
 
@@ -49,23 +40,9 @@ namespace minesweepers
 
     static async Task Init()
     {
+      _connectionHub.StartWorker();
       Task.Run(() => StartGame());
       await Listen();
-    }
-
-    static async Task RunGameTasks()
-    {
-      var gp = new GamePointer();
-      gp.Game = new Sweeper();
-
-      while (true)
-      {
-        //var task = await _taskQueue.ReceiveAsync();
-        //await task(gp);
-        var task = await _gameTasks.ReceiveAsync();
-        await task.Process(gp);
-     
-      }
     }
 
     static async Task SerializeChangedSquares(BufferBlock<Square[]> changedSquares, BufferBlock<UpdatePacket> sendQueue)
@@ -83,20 +60,7 @@ namespace minesweepers
       }
     }
 
-    static async Task SerializeStateChanges(BufferBlock<PlayerState>changedPlayers,BufferBlock<UpdatePacket>sendQueue)
-    {
-      while (true)
-      {
-        var changed = await changedPlayers.ReceiveAsync();
-        var json = JSON.Serialize<PlayerState>(changed);
-        var packet = new UpdatePacket()
-        {
-          Type = "player",
-          Data = json
-        };
-        await sendQueue.SendAsync(packet);
-      }
-    }
+
 
     static async Task PushUpdates(BufferBlock<UpdatePacket> sendQueue)
     {
@@ -104,16 +68,7 @@ namespace minesweepers
       {
         var next = await sendQueue.ReceiveAsync();
         var json = JSON.Serialize<UpdatePacket>(next);
-
         await _connectionHub.Broadcast(json);
-        /*
-        await _connectionLock.WaitAsync();
-        foreach (var conn in _connections)
-        {
-          await conn.WriteFrame(json);
-        }
-        _connectionLock.Release();
-        */
       }
     }
 
@@ -134,37 +89,21 @@ namespace minesweepers
 
     static async Task StartGame()
     {
+      var sendChannel = new BufferBlock<UpdatePacket>();
+      var gp = new GamePointer();
+      var players = new List<PlayerState>();
+      gp.Game = new Sweeper();
 
-      var task1 = Task.Run(()=>RunGameTasks());
-      var task2 = Task.Run(()=>SerializeChangedSquares(_changedSquares,_sendQueue));
-      var task3 = Task.Run(()=>SerializeStateChanges(_changedPlayers,_sendQueue));
-      var task4 = Task.Run(()=>PushUpdates(_sendQueue));
-      var task5 = Task.Run(async () =>
+      var pushupdates = PushUpdates(sendChannel);
+
+      while (true)
       {
-        while (true)
-        {
-          var raw = await _playerInputs.ReceiveAsync();
-          PlayerState player;
-          if (!_players.TryGetValue(raw.Hash, out player) || player.Dead)
-          {
-            continue;
-          }
+        //var task = await _taskQueue.ReceiveAsync();
+        //await task(gp);
+        var task = await _gameTasks.ReceiveAsync();
+        await task.Process(gp, players, sendChannel);
 
-          dynamic command = ParseCommand(raw);
-
-          if (command == null)
-          {
-            continue;
-          }
-
-          var updatetask = new UpdateTask(command, player, _sendQueue);
-          await _gameTasks.SendAsync(updatetask);
-
-        }
-
-      });
-
-
+      }
 
     }
     
@@ -216,7 +155,7 @@ namespace minesweepers
             continue;
           }
 
-          var updatetask = new UpdateTask(command, player, _sendQueue);
+          var updatetask = new UpdateTask(command, player);
           await _gameTasks.SendAsync(updatetask);
         }
 
@@ -224,7 +163,7 @@ namespace minesweepers
         await uc.SendAsync(null);
       });
 
-      var initTask = new InitTask(uc, player, _players);
+      var initTask = new InitTask(uc, player);
       await _gameTasks.SendAsync(initTask);
 
       await uc.Worker();

@@ -14,14 +14,42 @@ namespace minesweepers
   {
     public List<UserConnection> Connections { get; set; }
     private SemaphoreSlim Lock;
+    private BufferBlock<string> _channel;
 
     public ConnectionHub()
     {
       Connections = new List<UserConnection>();
       Lock = new SemaphoreSlim(1);
+      _channel = new BufferBlock<string>();
     }
 
-    public async Task Broadcast(String update)
+    public Task Broadcast(String update)
+    {
+      return _channel.SendAsync(update);
+    }
+
+    public async Task StartWorker()
+    {
+      while (true)
+      {
+        var update = await _channel.ReceiveAsync();
+        await Lock.WaitAsync();
+        try
+        {
+          foreach (var conn in Connections)
+          {
+            await conn.SendAsync(update);
+          }
+        }
+        finally
+        {
+          Lock.Release();
+        }
+
+      }
+    }
+
+    public async Task Broadcast2(String update)
     {
       await Lock.WaitAsync();
 
@@ -54,9 +82,9 @@ namespace minesweepers
 
     public async Task Add(UserConnection conn)
     {
+      await Lock.WaitAsync();
       try
       {
-        await Lock.WaitAsync();
         Connections.Add(conn);
       }
       finally
@@ -67,9 +95,9 @@ namespace minesweepers
 
     public async Task Remove(UserConnection conn)
     {
+      await Lock.WaitAsync();
       try
       {
-        await Lock.WaitAsync();
         Connections.Remove(conn);
       }
       finally
