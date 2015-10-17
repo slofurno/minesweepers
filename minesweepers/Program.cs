@@ -162,43 +162,9 @@ namespace minesweepers
 
             await _changedPlayers.SendAsync(player);
 
-          });
 
-          /*
-          switch (raw.Type)
-          {
-            case "flag":
-              var flagCommand = JSON.Deserialize<FlagCommand>(raw.RawCommand);
-
-              break;
-            case "reveal":
-              var revealCommand = JSON.Deserialize<RevealCommand>(raw.RawCommand);
-
-              break;
-            case "move":
-              var moveCommand = JSON.Deserialize<MoveCommand>(raw.RawCommand);
-
-              break;
-          }
-          */
-
-
-          /*
-          dynamic command = ParseCommand(rawcommand);
-
-          await _taskQueue.SendAsync(async (gp) =>
-          {
-            var changedSquares = await gp.Game.Update(playerInput);
-            if (changedSquares.Length > 0)
-            {
-              await _changedSquares.SendAsync(changedSquares);
-            }
-
-            await _changedPlayers.SendAsync(playerInput);
 
           });
-          */
-
         }
 
       });
@@ -228,8 +194,9 @@ namespace minesweepers
       await _connectionHub.Add(uc);
       bool closed = false;
       var hash = Guid.NewGuid().ToString();
+      var player = new PlayerState() { Name = "player", Color = "blue" };
 
-      _players.Add(hash, new PlayerState());
+      _players.Add(hash, player);
 
       var initPacket = new UpdatePacket() { Type = "init", Data = hash };
       var ip = JSON.Serialize(initPacket);

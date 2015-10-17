@@ -9,7 +9,6 @@ namespace minesweepers.Game
 {
   public class Sweeper
   {
-    private Dictionary<String, PlayerState> players;
     private Square[] _squares;
     private int width;
     private int height;
@@ -22,7 +21,6 @@ namespace minesweepers.Game
 
       width = 30;
       height = 20;
-      players = new Dictionary<string, PlayerState>();
       _squares = new Square[width * height];
       _remainingSquares = width * height;
       LiveBombs = 0;
