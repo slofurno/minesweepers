@@ -218,11 +218,6 @@
 	      });
 	    };
 
-
-
-	  //  vm.updatePlayer({ Name: "steve", Hash: "asdf" });
-
-
 	  };
 
 	  return vm;
@@ -257,7 +252,6 @@
 
 	  return{
 	    clickMine:function(e){
-
 	      e.preventDefault();
 	      m.redraw.strategy("none");
 
@@ -274,7 +268,6 @@
 	      var update = {Type:type,RawCommand:innerjson};
 	      var json = JSON.stringify(update);
 	      ws.send(json);
-
 	    },
 	    mouseMove:function(e){
 	      e.preventDefault();
@@ -293,10 +286,7 @@
 	      var color = sb.vm.color();
 	      console.log(name,color);
 	    }
-
 	  };
-
-
 	};
 
 	sb.view = function (ctrl) {
@@ -322,15 +312,16 @@
 	          } else if (square.Revealed) {
 	            className += " pressed";
 	            var neighbors = square.Neighbors;
-	            if (square.Neighbors > 0) {
+	            if (neighbors > 0) {
 	              body = "" + neighbors;
 	              color = sb.vm.colorLookup[neighbors];
+	              className+= color;
 	            }
 	          }
 
 	          return m("div", {
 	            class: className,
-	            style: {color: color},
+	            //style: {color: color},
 	            key:square.Index,
 	            value:square.Index
 	          }, body);

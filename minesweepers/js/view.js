@@ -135,15 +135,16 @@ sb.view = function (ctrl) {
           } else if (square.Revealed) {
             className += " pressed";
             var neighbors = square.Neighbors;
-            if (square.Neighbors > 0) {
+            if (neighbors > 0) {
               body = "" + neighbors;
               color = sb.vm.colorLookup[neighbors];
+              className+= color;
             }
           }
 
           return m("div", {
             class: className,
-            style: {color: color},
+            //style: {color: color},
             key:square.Index,
             value:square.Index
           }, body);
