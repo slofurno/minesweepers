@@ -56,7 +56,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ConnectionHub.cs" />
+    <Compile Include="Connection\ConnectionHub.cs" />
+    <Compile Include="Connection\UserConnection.cs" />
     <Compile Include="Events\InputEvent.cs" />
     <Compile Include="Game\GameRunner.cs" />
     <Compile Include="Game\Square.cs" />

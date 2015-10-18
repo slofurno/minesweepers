@@ -3,16 +3,16 @@ var DivParticleSystem = function() {
 
   var _head = null;
 
-  var createParticle = function (x,y) {
+  var createParticle = function (x,y, color) {
 
     var next = null;
     var prev = null;
 
     var el = document.createElement('div');
-    el.style.position = "fixed";
+    el.style.position = "absolute";
     el.style.backgroundColor = "RGBA(1,1,1,0)";
-    el.innerHTML = "●";
-    el.style.color = "red";
+    el.innerHTML = "\u25cf";
+    el.style.color = color;
 
     var t = 1000;
     var vx = Math.random() * 2 - 1;
@@ -77,10 +77,10 @@ var DivParticleSystem = function() {
 
   };
 
-  var Add = function (x, y, count) {
-
+  var Add = function (x, y, count, color) {
+    color = color || "red";
     for (var i = 0; i < count; i++) {
-      var node = createParticle(x, y);
+      var node = createParticle(x, y, color);
       _add(node);
     }
   };

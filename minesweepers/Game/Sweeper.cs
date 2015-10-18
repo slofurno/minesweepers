@@ -72,6 +72,13 @@ namespace minesweepers.Game
       return changed;
     }
 
+    public List<Square> Update(SettingsCommand command, PlayerState player)
+    {
+      player.Color = command.Color;
+      player.Name = command.Name;
+      return new List<Square>();
+    }
+
     public List<Square> Update(MoveCommand command, PlayerState player)
     {
       player.X = command.X;

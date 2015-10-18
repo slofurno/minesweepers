@@ -82,6 +82,8 @@ namespace minesweepers
           return JSON.Deserialize<RevealCommand>(command.RawCommand);
         case "move":
           return JSON.Deserialize<MoveCommand>(command.RawCommand);
+        case "settings":
+          return JSON.Deserialize<SettingsCommand>(command.RawCommand);
         default:
           return null;
       }
@@ -123,9 +125,13 @@ namespace minesweepers
       var hash = Guid.NewGuid().ToString();
       var player = new PlayerState() { Name = "player", Color = "blue", Hash = hash };
 
-      //var initPacket = new UpdatePacket() { Type = "init", Data = hash };
-      //var ip = JSON.Serialize(initPacket);
-      //await uc.SendAsync(ip);
+
+      var first = new PlayerInit() { Hash = hash, Height = 0, Width = 0 };
+      var json = JSON.Serialize(first);
+
+      var initPacket = new UpdatePacket() { Type = "init", Data = json };
+      var ip = JSON.Serialize(initPacket);
+      await uc.SendAsync(ip);
 
       ReadWebsocket(ws, gameTasks, uc, player);
 

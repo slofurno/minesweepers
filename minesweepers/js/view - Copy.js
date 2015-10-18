@@ -1,18 +1,6 @@
-var DivParticleSystem = require('./divparticlesystem');
 var Dictionary = require('./map');
 var m = require('./mithril.min');
 var sb = {};
-
-
-var parts = DivParticleSystem();
-
-function UpdateParts(){
-  parts.Update(25);
-  requestAnimationFrame(UpdateParts);
-}
-
-requestAnimationFrame(UpdateParts);
-
 
 sb.Player = function (player) {
   this.Hash = m.prop(player.Hash);
@@ -31,7 +19,7 @@ sb.vm = (function () {
     vm.players = Dictionary();
     vm.squares = Dictionary();
     vm.name = m.prop("player");
-    vm.color = m.prop("pick your color");
+    vm.color = m.prop("blue");
     vm.showColors = m.prop(false);
     vm.playerHash = "";
     vm.colorLookup = ["", " one", " two", " three", " four", " five", " six", " seven", " eight"];
@@ -40,15 +28,7 @@ sb.vm = (function () {
 
     vm.updatePlayer = function (update) {
       var players = [].concat(update).forEach(function(player){
-
-        var old = vm.players.get(player.Hash);
         vm.players.add(player.Hash, player);
-
-        if (old && old.Dead !== player.Dead){
-          console.log(player.Name, "JUST DIED!");
-          parts.Add(player.X, player.Y, 75, player.Color);
-        }
-
       });
     };
 
@@ -104,13 +84,11 @@ sb.controller = function () {
       e.preventDefault();
       m.redraw.strategy("none");
 
-      var rawvalue = e.target.getAttribute("value");
-
-      if (!isConnected||rawvalue===null){
+      if (!isConnected){
         return;
       }
 
-      var index = rawvalue|0;
+      var index = e.target.getAttribute("value")|0;
       var type = "flag";
 
       if (e.buttons===1){
@@ -153,10 +131,6 @@ sb.controller = function () {
     updateSettings:function(e){
       var name = sb.vm.name();
       var color = sb.vm.color();
-
-      if (sb.vm.CSS_COLOR_NAMES.indexOf(color)<0){
-        return;
-      }
 
       var settings = {Name:name,Color:color};
       var innerjson = JSON.stringify(settings);
@@ -234,10 +208,10 @@ sb.view = function (ctrl) {
               oninput: m.withAttr("value", sb.vm.name),
               value: sb.vm.name(),
               style:{
-                fontSize:"1.2em",
-                margin:"5px"
+                fontSize:"1.2em"
               }
-            })
+            }),
+            m("label",{class:"mdl-textfield__label"},"name")
           ]),
           m("div",{
             onclick:ctrl.toggleColors,
@@ -245,8 +219,7 @@ sb.view = function (ctrl) {
               width:"100%",
               border: sb.vm.showColors() ? "" : "1px solid black",
               backgroundColor: sb.vm.showColors() ? "rgba(0,0,0,0.0)" : "white",
-              padding:"5px",
-              margin:"5px"
+              padding:"5px"
 
             }
           },[
@@ -261,20 +234,23 @@ sb.view = function (ctrl) {
                 },
                 value:color
               }," ");
-            })) : sb.vm.color() + "     \u25bc"
+            })) : "Pick your color  \u25bc"
           ]),
+          m("select", {
+            onchange: m.withAttr("value", sb.vm.color),
+            value: sb.vm.color()
+          }, sb.vm.CSS_COLOR_NAMES.map(function(color) {
+              return m('option', { 'value': color }, color);
+          })),
           m("button[type=button]",{
             onclick:ctrl.updateSettings,
-            style:{
-              margin:"5px",
-              padding:"5px"
-            }
+            class:"mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent"
           },"update")
 
 
         ]),
         m("ul",
-        [ m("h3",{},"top scores"),
+        [
           sb.vm.players.getEnumerator().map(function(player){
             return m("li", player.Name + "  " + player.Points);
           })

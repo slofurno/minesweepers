@@ -21,6 +21,13 @@ namespace minesweepers
 
   }
 
+  public class PlayerInit
+  {
+    public string Hash { get; set; }
+    public int Width { get; set; }
+    public int Height { get; set; }
+  }
+
   public class PlayerCommand
   {
     public string Type { get; set; }
@@ -41,6 +48,12 @@ namespace minesweepers
   {
     public int X { get; set; }
     public int Y { get; set; }
+  }
+
+  public class SettingsCommand
+  {
+    public string Name { get; set; }
+    public string Color { get; set; }
   }
 
  

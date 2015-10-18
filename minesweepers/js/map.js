@@ -4,7 +4,6 @@ module.exports = function(getKey){
   var store = {};
 
   var getEnumerator = function(){
-    console.log("enumerator");
     var keys = Object.keys(store);
     return keys.map(function(key){
       return store[key];

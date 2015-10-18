@@ -12,4 +12,5 @@ namespace minesweepers.Game
     public string Data { get; set; }
 
   }
+
 }

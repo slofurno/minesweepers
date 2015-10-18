@@ -6,7 +6,7 @@
   <style>
     .square{
       vertical-align:top;
-      position:fixed;
+      position:absolute;
       width:12px;
       height:12px;
       background-color:aqua;
@@ -51,21 +51,33 @@
       font-weight:normal;
     }
 
+    .container{
+      vertical-align: top;
+      padding:20px;
+    }
+
+    .content{
+      background-color:ghostwhite;
+      box-shadow: 0px 2px 2px 0px rgba(0, 0, 0, 0.16), 0px 0px 2px 0px rgba(0, 0, 0, 0.12)
+    }
+
     .minefield{
-      position:fixed;
-      left:0;
-      top:0;
+      vertical-align: top;
+      position:relative;
+      display:inline-block;
       width:780px;
       height:600px;
       font-size:1em;
+      padding:5px;
     }
 
     .scoreboard{
-      position:fixed;
-      left:800px;
-      top:100px;
+      vertical-align: top;
+      position:relative;
+      display:inline-block;
       width:250px;
-      height:500px;
+      height:100%;
+      padding:5px;
     }
 
     .options-menu{
@@ -110,7 +122,13 @@
       white-space:nowrap;
     }
 
+    .color-square{
+      width:15px;
+      height:15px;
+    }
+
   </style>
+
 </head>
 <body>
 <script src="minesweepers.js"></script>
