@@ -73,6 +73,17 @@ namespace minesweepers.Game
 
       var squares = gp.Game.GetSquares().Select(x => new SquareDTO(x)).ToArray();
 
+      //FIXME: right now the order is important here, lest we lack player color information when rendering flags
+      var json2 = JSON.Serialize<PlayerState[]>(players.ToArray());
+      var packet2 = new UpdatePacket()
+      {
+        Type = "player",
+        Data = json2
+      };
+      var j2 = JSON.Serialize<UpdatePacket>(packet2);
+      await _uc.SendAsync(j2);
+
+
       var json = JSON.Serialize<SquareDTO[]>(squares);
       var packet = new UpdatePacket()
       {
@@ -83,16 +94,8 @@ namespace minesweepers.Game
       var j = JSON.Serialize<UpdatePacket>(packet);
       await _uc.SendAsync(j);
 
-      var json2 = JSON.Serialize<PlayerState[]>(players.ToArray());
-      var packet2 = new UpdatePacket()
-      {
-        Type = "player",
-        Data = json2
-      };
 
-      var j2 = JSON.Serialize<UpdatePacket>(packet2);
 
-      await _uc.SendAsync(j2);
     }
 
   }

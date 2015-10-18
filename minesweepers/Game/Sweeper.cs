@@ -59,6 +59,7 @@ namespace minesweepers.Game
       else if (square.Mined)
       {
         square.Flagged = true;
+        square.Revealed = true;
         square.Owner = player.Hash;
         changed.Add(square);
         player.Points++;
