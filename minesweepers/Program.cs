@@ -140,6 +140,9 @@ namespace minesweepers
 
       await uc.Worker();
       Console.WriteLine("disconnected");
+      
+      //FIXME: this is never pushed to currently connected clients
+      player.Dead = true;
       await connectionHub.Remove(uc);
     }
 
