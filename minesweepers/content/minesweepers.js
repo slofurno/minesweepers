@@ -188,11 +188,18 @@
 	      ws.send(json);
 	    },
 	    mouseMove:function(e){
+
+	      console.log(e);
 	      e.preventDefault();
 	      m.redraw.strategy("none");
 
+	      var offsetLeft = (document.body.clientWidth - 1072)/2 |0;
+	      offsetLeft = Math.max(0,offsetLeft);
+
+	      //var oh = (document.body.clientHeight - 1072)/2 |0;
+
 	      mouseCoords = {
-	        X:e.clientX+document.body.scrollLeft+document.documentElement.scrollLeft,
+	        X:e.clientX+document.body.scrollLeft+document.documentElement.scrollLeft-offsetLeft,
 	        Y:e.clientY+document.body.scrollTop+document.documentElement.scrollTop
 	      };
 
@@ -250,13 +257,15 @@
 	sb.view = function (ctrl) {
 	  return m("div",{class:"container"},
 	  [
-	    m("div",{class:"content"},
+	    m("div",{
+	      class:"content",
+	      onmousemove:ctrl.mouseMove
+	    },
 	    [
 
 	      m("div", {
 	        class: "minefield",
-	        onmousedown:ctrl.clickMine,
-	        onmousemove:ctrl.mouseMove
+	        onmousedown:ctrl.clickMine
 	      },
 	      [
 	        sb.vm.squares.getEnumerator().map(function(square){
@@ -346,24 +355,26 @@
 	            }, player.Name + "  " + player.Points);
 	          })
 	        ])
+	      ]),
+
+	      m("div",[
+	        sb.vm.players.getEnumerator().filter(function(player){
+	          return player.Hash != sb.vm.playerHash && player.Dead===false;
+	        }).map(function (player) {
+	          return m("div",{
+	            class:"square",
+	            style:{
+	              left:player.X+"px",
+	              top:player.Y+"px",
+	              color:player.Color
+	            }
+	          },["\u261C "]);
+	        })
 	      ])
 
-	    ]),
-
-	    m("div",[
-	      sb.vm.players.getEnumerator().filter(function(player){
-	        return player.Hash != sb.vm.playerHash && player.Dead===false;
-	      }).map(function (player) {
-	        return m("div",{
-	          class:"square",
-	          style:{
-	            left:player.X+"px",
-	            top:player.Y+"px",
-	            color:player.Color
-	          }
-	        },["\u261C "]);
-	      })
 	    ])
+
+
 
 	  ]);
 	};
