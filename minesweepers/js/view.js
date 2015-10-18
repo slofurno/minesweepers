@@ -275,8 +275,12 @@ sb.view = function (ctrl) {
         ]),
         m("ul",
         [ m("h3",{},"top scores"),
-          sb.vm.players.getEnumerator().map(function(player){
-            return m("li", player.Name + "  " + player.Points);
+          sb.vm.players.getEnumerator().sort(function(a,b){
+            return b.Points - a.Points;
+          }).map(function(player){
+            return m("li",{
+              key:player.Hash
+            }, player.Name + "  " + player.Points);
           })
         ])
       ])
@@ -285,7 +289,7 @@ sb.view = function (ctrl) {
 
     m("div",[
       sb.vm.players.getEnumerator().filter(function(player){
-        return player.Hash != sb.vm.playerHash;
+        return player.Hash != sb.vm.playerHash && player.Dead===false;
       }).map(function (player) {
         return m("div",{
           class:"square",
