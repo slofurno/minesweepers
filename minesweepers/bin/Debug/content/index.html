@@ -1,0 +1,143 @@
+﻿<!doctype html>
+<html lang=en>
+<head>
+  <meta charset=utf-8>
+  <title>blah</title>
+  <style>
+    .square{
+      vertical-align:top;
+      position:absolute;
+      width:12px;
+      height:12px;
+      background-color:aqua;
+      background-color:RGBA(1,1,1,0);
+      font-size:2em;
+      margin-top:-20px;
+      pointer-events: none;
+
+    }
+
+    .mine-square{
+      position:relative;
+      vertical-align:top;
+      display:inline-block;
+      width:26px;
+      height:26px;
+      background-color:silver;
+      margin:0;
+      border-top: 3px solid lightgray;
+      border-right: 3px solid gray;
+      border-bottom: 3px solid gray;
+      border-left: 3px solid lightgray;
+      font-size:14px;
+      font-weight:bold;
+      text-align: center;
+      -webkit-box-sizing: border-box; /* Safari/Chrome, other WebKit */
+      -moz-box-sizing: border-box;    /* Firefox, other Gecko */
+      box-sizing: border-box;
+
+    }
+
+    .mine-square.pressed{
+      border-top: 3px solid silver;
+      border-right: 3px solid silver;
+      border-bottom: 3px solid silver;
+      border-left: 3px solid silver;
+
+    }
+
+    .mined{
+      color:red;
+      font-weight:normal;
+    }
+
+    .container{
+      position:relative;
+      vertical-align: top;
+      padding:0;
+      margin:0;
+    }
+
+    .content{
+      position:relative;
+      background-color:ghostwhite;
+      box-shadow: 0px 2px 2px 0px rgba(0, 0, 0, 0.16), 0px 0px 2px 0px rgba(0, 0, 0, 0.12);
+      width:1072px;
+      height:610px;
+      margin:auto;
+    }
+
+    .minefield{
+      vertical-align: top;
+      position:relative;
+      display:inline-block;
+      width:780px;
+      height:600px;
+      font-size:1em;
+      padding:5px;
+    }
+
+    .scoreboard{
+      vertical-align: top;
+      position:relative;
+      display:inline-block;
+      width:250px;
+      height:100%;
+      padding:5px;
+    }
+
+    .options-menu{
+      position:fixed;
+      left:800px;
+      top:0;
+      width:250px;
+      height:100px;
+    }
+
+    .one{
+      color:mediumblue;
+    }
+    .two{
+      color:darkgreen;
+    }
+    .three{
+      color:crimson;
+    }
+    .four{
+      color:midnightblue;
+    }
+    .five{
+      color:magenta;
+    }
+    .six{
+      color:magenta;
+    }
+    .seven{
+      color:magenta;
+    }
+    .eight{
+      color:magenta;
+    }
+
+    .scoreboard-row{
+      height:2em;
+    }
+
+    .scoreboard-row > *{
+      display:inline-block;
+      white-space:nowrap;
+    }
+
+    .color-square{
+      width:15px;
+      height:15px;
+    }
+
+  </style>
+
+</head>
+<body>
+<script src="minesweepers.js"></script>
+
+</body>
+</html>
