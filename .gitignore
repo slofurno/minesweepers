@@ -16,7 +16,7 @@ build/
 *.lock.json
 *.nupkg
 
-*.exe
+#*.exe
 *.swp
 *.swo
 *~
