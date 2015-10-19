@@ -189,14 +189,11 @@
 	    },
 	    mouseMove:function(e){
 
-	      console.log(e);
 	      e.preventDefault();
 	      m.redraw.strategy("none");
 
 	      var offsetLeft = (document.body.clientWidth - 1072)/2 |0;
 	      offsetLeft = Math.max(0,offsetLeft);
-
-	      //var oh = (document.body.clientHeight - 1072)/2 |0;
 
 	      mouseCoords = {
 	        X:e.clientX+document.body.scrollLeft+document.documentElement.scrollLeft-offsetLeft,
